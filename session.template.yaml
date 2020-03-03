@@ -1,0 +1,43 @@
+data directory: './'
+rosbag filename: 'demonstration_xxx.bag'   #file that contains the demonstrations
+rosbag topic prefix: '/panda'
+joint indices list: [0,1,2,3,4,5,6,7]    #indices of the joints we want to learn. if omitted, use all joints
+labelapp labels:     #labels that the LabelApp should present in the GUI
+    - 'up'
+    - 'down'
+    - 'left'
+cut list filename: 'cutlist.yaml'    #Where the labelapp should save the cutlist / where the learnGraph.py finds the cutlist
+output directory: 'behavior/'  #where the behavior (phase-state-machine graph and ProMPs) is saved
+output illustrations directory: 'illustrations/' #where to save figures and illustrations
+
+minimum sample count: 4   #Warn if the user provided less than this amound of demonstrations for each transition
+promp supports count: 7   #How many support points should be used for transition trajectories?
+
+promp learner velocity profile assumption: 'kumaraswamy1.645,1.800'  # alternatives are constant, beta22
+promp learner trim non motion: true    #whether or not to trim non-motion at start and end of observations
+
+promp learner use fake efforts: False   #Should torques be faked instead of learned from the demonstrations? Set to true if you only have demonstrations of movements
+#fake torque covariances:  #covariances to fake, between position and velocity respectively 
+#  default:  [1.5, 10.0, 10.0]
+
+controller defaults:
+    type: PDController
+    kp: 5
+    kd: 2
+
+promp learning prior:  #biases the learning of the promep towards being a pd-controller
+    kp: [30, 30, 30, 30, 10,10,10,30]
+    kv: [10, 10, 10, 10, 10,10,10, 1]
+    jerk noise: 0.5
+    oversample: 4
+
+mixer_weighing_method: 'Deimel'  #method to use for mixing distributions (Paraschos, Deimel)
+
+## if set, phasta parameters is copied to the phasta.yaml when learning a behavior:
+phasta_parameters: 
+    alpha: 1.0
+    dt: 0.01
+    epsilon: 1.0e-05
+    initial_bias: [1.0e-9, 1.0e-9, 1.0e-9, 1.0e-9, 1.0e-9, 1.0e-9, 1.0e-9, 1.0e-9, 1.0e-9, 1.0e-9, 1.0e-9]
+    initial_transition_velocity_exponents: 0
+    nu: 4.0

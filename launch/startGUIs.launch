@@ -1,0 +1,17 @@
+<?xml version="1.0" ?>
+
+<launch>
+  <env name="OPENBLAS_NUM_THREADS" value="1" />   <!--workaround for bug in libopenblas, causes extreme (1000x) sys cpu overhead on numpy matrix inversion-->
+  <node name="mstatemonitor" pkg="phastapromp" type="mstatemonitornode.py"  output="screen">
+  </node>
+
+  <node name="phastamonitor" pkg="phastapromp" type="phastamonitornode.py"  output="screen">
+  </node>
+
+  <node name="phasesactivationsmonitor" pkg="phastapromp" type="phasesactivationsmonitor.py"  output="screen">
+  </node>
+  
+  <param name="robot_description" command="$(find xacro)/xacro $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />
+  <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(env ROS_DATA)/runBehavior.rviz"/>  
+
+</launch>

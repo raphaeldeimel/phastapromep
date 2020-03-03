@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<launch>
+  <node name="ensurePresenceOfDefaultFiles" pkg="phastapromp" type="initializeDataDir.sh"  cwd='node' output="screen" required='true' />
+</launch>
+
+

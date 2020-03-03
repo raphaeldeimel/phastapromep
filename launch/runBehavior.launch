@@ -1,0 +1,63 @@
+<?xml version="1.0" ?>
+
+<launch>
+  <env name="OPENBLAS_NUM_THREADS" value="1" />   <!--workaround for bug in libopenblas, causes extreme (1000x) sys cpu overhead on numpy matrix inversion-->
+  <arg name="for_real" default="false"/>
+  
+  <arg name="load_gripper" default="true" />
+  <arg name="robot_ip" default="robot.franka.de" />
+  <arg name="publish_rate" default="30" />
+  <arg name="controller_use_mstate" default="true" /> <!-- select whether pdcontroller takes mstate dist as input (true) or explicit SISO pdcontroller gains (false) -->
+  
+  <param if="$(arg for_real)" name="panda_hostname" value="panda1"/>
+
+  <rosparam if="$(arg for_real)" command="load" file="$(find controller_panda_mti)/config/$(env PANDA_MAC).yaml" />
+
+  <param name="/DefinitionsDirectory" value='behavior/' />
+  <rosparam command="load" file="$(env ROS_DATA)/behavior/phasta.yaml" ns="phastapromp" />
+  
+  <param unless="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro  $(find franka_description)/robots/panda_arm.urdf.xacro"/>
+  <param if="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro  $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />
+
+<group if="$(arg for_real)" >
+  <node     if="$(arg load_gripper)"   name="pdcontroller" pkg="controller_panda_mti"  launch-prefix="chrt -f 99"  type="pdcontroller_gripper_netft" required="true"  output="screen">
+      <remap if="$(arg controller_use_mstate)" to="/mixer/mstate_distribution" from="/panda/desiredmechanicalstate"/> 
+      <rosparam command="load" file="$(find controller_panda_mti)/config/$(env PANDA_MAC).yaml" />       
+  </node>
+  <node unless="$(arg load_gripper)"   name="pdcontroller" pkg="controller_panda_mti"  launch-prefix="chrt -f 99"  type="pdcontroller" required="true"  output="screen">
+      <remap if="$(arg controller_use_mstate)" to="/mixer/mstate_distribution" from="/panda/desiredmechanicalstate"/>
+  </node>
+  
+</group>
+
+  <node name="pdcontrollergoal2jointstate" pkg="phastapromp" type="pdcontrollergoal2jointstatepublisher.py"  output="screen" required="true">
+   <remap from="/panda/joint_states_goal" to="/joint_states"/>
+   <remap from="/panda/pdcontroller_goal" to="/mixer/pdcontroller_goal"/>
+ </node>
+ 
+ 
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
+    <param if="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro  '$(find franka_description)/robots/panda_arm_hand.urdf.xacro'" />
+    <param unless="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro '$(find franka_description)/robots/panda_arm.urdf.xacro'" />
+    <param  if="$(arg load_gripper)" name="publish_default_positions" value="true" />
+  </node>
+
+  <node name="realrobot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
+    <remap from="/joint_states" to="/panda/joint_states_real"/>
+    <param name="tf_prefix" value='realrobot'/>
+    <param  if="$(arg load_gripper)" name="publish_default_positions" value="true" />
+  </node>
+  <node pkg="tf2_ros" type="static_transform_publisher" name="realrobot_anchor" args="0 0 0 0 0 0 1 panda_link0 realrobot/panda_link0" />  
+
+
+
+  <node name="phasta" pkg="phastapromp" type="phastanode.py"  output="screen">
+  </node>
+  <node name="movementmixer" pkg="phastapromp" type="prompmixernode.py"  output="screen">
+      <remap unless="$(arg controller_use_mstate)" from="/mixer/pdcontroller_goal" to="/panda/pdcontroller_goal"/>
+
+  </node>
+
+  
+  
+</launch>

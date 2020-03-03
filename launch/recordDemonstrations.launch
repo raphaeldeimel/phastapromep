@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<launch>
+  <arg name="robot_ip" default="robot.franka.de" />
+  <arg name="load_gripper" default="true" />
+  
+  <node name="ensurePresenceOfDefaultFiles" pkg="phastapromp" type="initializeDataDir.sh"  cwd='node' output="screen" />
+    
+  <node name="statepublisher" pkg="controller_panda_mti"  launch-prefix="chrt -f 99"  type="statepublisher" required="true" output="screen"/>
+
+  <node pkg="rosbag" type="record" name="demonstration_recorder" args="record -o $(env ROS_DATA)/demonstration -a" required="true"/>
+
+</launch>
+
+

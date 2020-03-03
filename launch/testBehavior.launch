@@ -1,0 +1,36 @@
+<?xml version="1.0" ?>
+
+<launch>
+  <env name="OPENBLAS_NUM_THREADS" value="1" />   <!--workaround for bug in libopenblas, causes extreme (1000x) sys cpu overhead on numpy matrix inversion-->
+  <arg name="for_real" default="false"/>  
+  <arg name="load_gripper" default="true" />
+  <arg name="robot_ip" default="robot.franka.de" />
+  <arg name="publish_rate" default="30" />
+  
+  <param if="$(arg for_real)" name="panda_hostname" value="panda1"/>
+
+
+  <param name="/DefinitionsDirectory" value='behavior/' />
+  <rosparam command="load" file="$(env ROS_DATA)/behavior/phasta.yaml" ns="phastapromp" />
+  
+
+<group if="$(arg for_real)" >
+  <node name="pdcontrollergoal2jointstate" pkg="phastapromp" type="pdcontrollergoal2jointstatepublisher.py"  output="screen">
+   <remap from="/panda/joint_states_goal" to="/joint_states"/>
+ </node>  
+</group>
+  
+  <node unless="$(arg for_real)"   name="pdcontrolleremulator" pkg="phastapromp" type="pdcontrolleremulationnode.py"  output="screen">
+        <remap from="/desired_joint_states" to="/joint_states"/>
+  </node>
+  
+
+  <node name="phasta" pkg="phastapromp" type="phastanode.py"  output="screen">
+  </node>
+  <node name="movementmixer" pkg="phastapromp" type="prompmixernode.py"  output="screen">
+      <remap from="/mixer/pdcontroller_goal" to="/panda/pdcontroller_goal"/>
+  </node>
+
+  
+  
+</launch>

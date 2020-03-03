@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="21.695833mm"
+   height="21.695833mm"
+   viewBox="0 0 21.695833 21.695833"
+   version="1.1"
+   id="svg3941"
+   inkscape:version="0.92.4 (f8dce91, 2019-08-02)"
+   sodipodi:docname="playbtn.svg">
+  <defs
+     id="defs3935" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="10.621951"
+     inkscape:cx="27.537315"
+     inkscape:cy="41.000001"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1920"
+     inkscape:window-height="1052"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata3938">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-93.119925,-90.243522)">
+    <g
+       id="g11"
+       transform="translate(0.18682048,0.22417481)">
+      <ellipse
+         ry="9.5526428"
+         rx="9.3409157"
+         id="circle3884"
+         cy="100.86726"
+         cx="103.78102"
+         style="clip-rule:evenodd;fill-rule:evenodd;stroke-width:0.23039477" />
+      <path
+         id="path3886"
+         d="m 101.23255,96.221407 c 0,-0.726467 0.46955,-0.970408 1.04299,-0.541938 l 5.90187,4.408661 c 0.57366,0.42847 0.57366,1.12977 0,1.55824 l -5.90187,4.40867 c -0.57367,0.42847 -1.04299,0.18475 -1.04299,-0.54171 z"
+         style="clip-rule:evenodd;fill:#ffffff;fill-rule:evenodd;stroke-width:0.23039477"
+         inkscape:connector-curvature="0" />
+    </g>
+  </g>
+</svg>

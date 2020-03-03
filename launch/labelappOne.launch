@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+
+<launch>
+  <arg name="load_gripper" default="true" />
+  <arg name="robot_ip" default="robot.franka.de" />
+  <param unless="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro $(find franka_description)/robots/panda_arm.urdf.xacro" />
+  <param if="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />
+
+
+  <node pkg="tf" type="static_transform_publisher" name="labframe_static" args="0 0 0   0 0 0 1 map panda_link0 100" />
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
+    <param if="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro  '$(find franka_description)/robots/panda_arm_hand.urdf.xacro'" />
+    <param unless="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro  '$(find franka_description)/robots/panda_arm.urdf.xacro'" />
+    <remap from="joint_states" to="simulated_joint_states"/>  
+    <param  if="$(arg load_gripper)" name="publish_default_positions" value="true" />
+  </node>
+
+  <param name="DemoSessionConfigFileName" value="session.yaml"/>
+  
+  <node name="labelgui"  pkg="phastapromp" type="LabelApp.py" args="session.yaml" required="true" output="screen" />
+  <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(env ROS_DATA)/labelapp.rviz" />
+  
+</launch>

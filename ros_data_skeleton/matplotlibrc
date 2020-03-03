@@ -1,0 +1,70 @@
+#tell matplotlib to use tex
+text.usetex: True
+text.latex.unicode: True
+#this makes eps files much nicer, as fonts do not get bitmapped. only works on linux:
+ps.usedistiller: xpdf
+
+# here you can select a font:
+font.family: 'CMU Serif'
+font.serif: 'CMU Serif' 
+font.sans-serif: 'CMU Sans Serif'
+
+#some nicer font sizes
+axes.titlesize: 8
+axes.labelsize: 6
+xtick.labelsize: 5
+ytick.labelsize: 5  
+lines.markersize: 4
+legend.fontsize: 5
+legend.markerscale   : 3.0
+
+
+#switch off the grid:
+grid.color       :   gray  
+grid.linestyle   :   -       
+grid.linewidth   :   0.0
+axes.grid        : False
+axes.linewidth   : 0.1
+axes.formatter.use_mathtext: True   #this makes the ticks be set in the selected font and not default font
+
+xtick.major.size     : 2      # major tick size in points
+xtick.minor.size     : 1      # minor tick size in points
+xtick.major.width    : 0.2    # major tick width in points
+xtick.minor.width    : 0.2    # minor tick width in points
+ytick.major.size     : 2      # major tick size in points
+ytick.minor.size     : 1      # minor tick size in points
+ytick.major.width    : 0.2    # major tick width in points
+ytick.minor.width    : 0.2    # minor tick width in points
+
+
+
+#note: axes.color will be superceded by axes.propcycle with matplotlib > 1.5.0! 
+#axes.color_cycle : 9696ff, 96ff96, ff9696, b4b4b4, 000000, 0000b4, 008000, ff0000, 000000, 000000
+#axes.color_cycle : 303030, ff7676, 7676ff, 76ff76,  b4b4b4,  0000b4, 008000, ff0000, 000000, 000000
+#axes.color_cycle : 303030, ff0000, 7676ff, 76ff76,  b4b4b4,  0000b4, 008000, ff0000, 000000, 000000
+axes.prop_cycle    : cycler('color', ['303030', 'ff0000','7676ff','76ff76','b4b4b4','0000b4','008000','ff0000','000000'])
+
+#axes.markers :  -s,-*,-^,-o,-v,-*,-*
+
+lines.linewidth   : 0.5
+lines.linestyle   : -       # solid line
+lines.markeredgewidth  : 0.0     # the line width around the marker symbol
+lines.solid_capstyle : butt
+lines.solid_joinstyle : bevel
+
+
+#set the size for a column-width figure:
+
+figure.figsize :  3.4, 1.7  #standard 3.4 inch column width of IJRR / IEEE conference paper
+
+#figure.autolayout: True
+figure.subplot.left    : 0.12    # the left side of the subplots of the figure
+figure.subplot.right   : 0.97    # the right side of the subplots of the figure
+figure.subplot.bottom  : 0.17    # the bottom of the subplots of the figure
+figure.subplot.top     : 0.97    # the top of the subplots of the figure
+figure.subplot.wspace  : 0.08    # the amount of width reserved for blank space between subplots
+figure.subplot.hspace  : 0.15    # the amount of height reserved for white space between subplots
+
+
+patch.linewidth: 0.0
+patch.antialiased: True

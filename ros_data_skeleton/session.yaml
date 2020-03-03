@@ -1,0 +1,49 @@
+data directory: './'
+hdf5 filename: 'observations.h5'
+topic prefix: '/panda'
+joint indices list: [0,1,2,3,4,5,6,7]    #indices of the joints we want to learn. if omitted, use all joints
+
+
+output directory: 'behavior/'  #where the behavior (phase-state-machine graph and ProMPs) is saved
+output illustrations directory: 'illustrations/' #where to save figures and illustrations
+
+##Here you can specify each controller's parameters:
+controller defaults:
+    type: PDController
+    kp: [20, 20, 20, 20, 10,10,10,20]
+    kv: [5, 5, 5, 5, 5,5,5,5]
+    expectedTorqueNoise: 0.01
+    learnFrom: 'all'   # should goal position be interpolated from "incoming" transitions, "outgoing" transitions, or from "all" ?    
+#    'state above': 
+#          kp: [5, 5, 5, 5, 5,5,5,20]
+#          kv: [5, 5, 5, 5, 5,5,5,5]
+#          expectedTorqueNoise: 0.01
+
+
+minimum sample count: 4   #Warn if the user provided less than this amound of demonstrations for each transition
+
+promp learning prior:  #biases the learning of the promep towards being a pd-controller
+    defaults:
+        supports_count: 7  #How many support points should be used for transition trajectories?
+        velocity_profile_assumption: 'kumaraswamy1.645,1.800'  # alternatives are constant, beta22
+        trim_strategy: 'inpoint_outpoint'    # alternative is trim_standstill
+        kp: [30, 30, 30, 30, 10, 10, 10, 30]
+        kv: [ 5,  5,  5,  5,  5,  5,  5,  1]
+        phaseVelocityRelativeFloor: 0.1  #hack to avoid very low kp gains on very low phase velocities. 0.0 is original behavior
+    
+    'right_to_ready': #values for the transition only
+        kp: [20, 20, 20, 20, 20, 20, 20, 20]
+        kv: [20, 20, 20, 20, 20, 20, 20,  5]
+    
+mixer_weighing_method: 'Deimel'  #method to use for mixing distributions (Paraschos, Deimel)
+
+## if set, phasta_parameters is copied to the phasta.yaml when learning a behavior:
+phasta_parameters: 
+    alphaTime: 100
+    dt: 0.01
+    epsilon: 1.0e-05
+    initial_bias: 1.0e-3
+    initial_transition_velocity_exponents: 0
+    initial greediness: 1.0
+
+

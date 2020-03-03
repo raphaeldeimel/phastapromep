@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="21.695833mm"
+   height="21.695833mm"
+   viewBox="0 0 21.695833 21.695833"
+   version="1.1"
+   id="svg4284"
+   inkscape:version="0.92.4 (f8dce91, 2019-08-02)"
+   sodipodi:docname="pausebtn.svg">
+  <defs
+     id="defs4278" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="10.621951"
+     inkscape:cx="27.537301"
+     inkscape:cy="41"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1920"
+     inkscape:window-height="1052"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:snap-grids="true"
+     inkscape:snap-to-guides="true" />
+  <metadata
+     id="metadata4281">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-412.48543,-17.788989)">
+    <ellipse
+       style="clip-rule:evenodd;fill-rule:evenodd;stroke-width:0.21271639"
+       cx="423.33334"
+       cy="28.636906"
+       id="circle3890"
+       rx="8.4940062"
+       ry="8.9548244" />
+    <g
+       transform="matrix(0.20717088,0,0,0.21841035,362.4577,-22.364228)"
+       id="g3896">
+      <rect
+         x="274.42734"
+         y="210.9902"
+         width="14.997192"
+         height="45.040806"
+         id="rect3892"
+         style="clip-rule:evenodd;fill:#ffffff;fill-rule:evenodd"
+         ry="0.062133789" />
+      <rect
+         x="299.31708"
+         y="211.05234"
+         width="13.940921"
+         height="44.978668"
+         id="rect3894"
+         style="clip-rule:evenodd;fill:#ffffff;fill-rule:evenodd" />
+    </g>
+  </g>
+</svg>

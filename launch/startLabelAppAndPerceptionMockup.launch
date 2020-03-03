@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+
+<launch>
+
+<!--<node pkg="tf" type="static_transform_publisher" name="panda2labframe" args="1.5 0.20 0.78  1.22 0 0.0 lab_frame panda_link0 100" />-->
+<!--<node pkg="tf" type="static_transform_publisher" name="poi2panda" args="-0.25 0.55 0.0   3.14 0 0.0 panda_link0 poi 100" /> -->
+
+<node pkg="tf" type="static_transform_publisher" name="labframe2map" args="0.0 0.0 0.0 0.0 0.0 0.0 1.0 map lab_frame 1000" />
+<node pkg="tf" type="static_transform_publisher" name="panda2labframe" args="1.5 0.20 0.78   1.05 0 0.0 lab_frame panda_link0 100" />
+<node pkg="tf" type="static_transform_publisher" name="poi2panda" args="-0.25 0.55 0.0   3.14 0 0.0 panda_link0 poi 100" /> <!--args="-0.25 0.55 0.0   1.57 0 0.0 panda_link0 poi 100" />-->
+
+
+<include file="$(find phastapromp)/launch/labelappOne.launch" />
+
+
+</launch>
