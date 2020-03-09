@@ -39,8 +39,7 @@ from panda_msgs_mti.msg import RobotState8
 try:
     from ruamel import yaml   #replaces deprecated pyYAML
 except ImportError as e:
-    if "promp" in e.message:
-        print("\nCould not find ruamel. Please download/install the python-ruamel package!\n”")
+    print("\nCould not find ruamel. Please download/install the python-ruamel package!\n”")
     raise e
 
 def yaml_constructor(loader, node):
@@ -80,7 +79,7 @@ class PandaPublisherModeEnum(Enum):
 
 
 def makeMetaDataIndex():
-    tuples = [('secs',),('nsecs',),('t',)]
+    tuples = [('secs',None, None),('nsecs',None, None),('t',None, None)]
     for level1 ,level2 in (('observed', 'position'), 
                 ('observed','velocity'), 
                 ('observed', 'acceleration'), 
@@ -92,7 +91,7 @@ def makeMetaDataIndex():
             tuples.append( (level1, level2, str(i)) )
     for i in range(6):
         tuples.append( ('taskspace' 'force', str(i)) )
-    return pd.MultiIndex.from_tuples(tuples, names=('id', 'dof'))
+    return pd.MultiIndex.from_tuples(tuples, names=('origin', 'id', 'dof'))
 metaDataIndex = makeMetaDataIndex() #create the metadata table index once globally, and reuse it
 
 
@@ -178,12 +177,13 @@ class LabelController(object):
         self.currentlyActiveTrajectoryNumber = None
                 
         #Instantiate publishers, and set which none to publish controller goals to:
-        self.rosPublisherToPdcontroller = rospy.Publisher("/panda/pdcontroller_goal", PDControllerGoal8, queue_size=3)
-        self.rosPublisherToRviz = rospy.Publisher("/panda/pdcontroller_goal_simulation", PDControllerGoal8, queue_size=3)
+        rospy.getP
+
+        self.rosPublisherToPdcontroller = rospy.Publisher("pdcontroller_goal", PDControllerGoal8, queue_size=3)
+        self.rosPublisherToRviz = rospy.Publisher("pdcontroller_goal_simulation", PDControllerGoal8, queue_size=3)
 
         # listen to for new Trajectories
-        topic_prefix = self.sessionConfig['topic prefix'] #needed? yes recording from topics
-        topic  = "{0}/currentstate".format(topic_prefix)# published by pdcontroller state publisher
+        topic  = "currentstate".format(topic_prefix)# published by pdcontroller state publisher
         self.observedRobotStatesList = []# Buffer to Store one Trajectory at a time(the current one)
         rospy.Subscriber(topic,RobotState8,self.PandaRobotStateCallback)
         print("Topic: {}".format(topic))

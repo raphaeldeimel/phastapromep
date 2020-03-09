@@ -2,17 +2,38 @@
 
 <launch>
   <node name="ensurePresenceOfDefaultFiles" pkg="phastapromep" type="initializeDataDir.sh"  cwd='node' output="screen" />
-
+  
   <group>
     <param name="DemoSessionConfigFileName" value="session.yaml"/>  
-    <node name="teaching_app"  pkg="phastapromep" type="teaching_app.py" args="session.yaml" required="true" output="screen" />
-  </group>
+    <node name="teaching_app"  pkg="phastapromep" type="teaching_app.py" args="session.yaml" required="false" output="screen" />
+  </group> 
+
+<arg name="arm_id" default="panda1" />
+<arg name="gripper_present" default="true" /> <!-- Due to ROS limitation, we need to set this extra. Make sure this is the same as in the config yaml -->
+<arg name="for_real" default="false"/>
+
+    
+<group ns='$(arg arm_id)'>
+  <include file="$(find controller_panda_mti)/launch/default.launch">
+    <arg name="arm_id" value='$(arg arm_id)' />
+  </include> 
+
+  <node name="controller2jointstatemsgs" pkg="controller_panda_mti" type="controller2jointstatemsgspublisher.py"  output="screen"/>
+  <node name="robot_tf_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+  <node name="expected_tf_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
+    <remap from="joint_states" to="joint_states_expected"/>
+    <param name="tf_prefix" value='expected'/>
+  </node>
+  <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg arm_id)_anchor_expected" args="0 0 0 0 0 0 1 base expected/$(arg arm_id)_link0" />  
+  <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg arm_id)_anchor" args="0 0.5 0 0 0 0 1 base $(arg arm_id)_link0" />  
 
 
-    <include file="$(find phastapromep)/launch/labelapp_auxiliary.launch" >
-      <arg name="for_real" default="true"/>
-      <arg name="wifi_leds" default="false" />
-    </include>
+</group>
+
+<node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(env ROS_DATA)/labelapp.rviz"/>  
+
+
+
 </launch>
 
 
