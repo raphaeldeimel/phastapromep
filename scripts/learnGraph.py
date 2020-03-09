@@ -29,7 +29,7 @@ import sys
 import yaml
 
 import matplotlib
-import phastapromp
+import phastapromep
 
     
 if len(sys.argv) == 1:
@@ -45,7 +45,7 @@ import pandas
 
 store = pandas.HDFStore(config['hdf5 filename'])
 
-graphconfig, promps = phastapromp.learnGraphFromDemonstration(config, observationsHDFStore=store)
+graphconfig, promps = phastapromep.learnGraphFromDemonstration(config, observationsHDFStore=store)
 
 
 #save all data neeeded to instantiate the learned graph into a single directy
@@ -54,11 +54,11 @@ DefinitionsDirectory = os.path.join(dataDirectory, config['output directory'])
 
 
 print("Saving learnt graph and movement primitives to {0}".format(os.path.abspath(DefinitionsDirectory)))
-phastapromp.saveGraphDefinitionsToDirectory(graphconfig, promps, DefinitionsDirectory)
+phastapromep.saveGraphDefinitionsToDirectory(graphconfig, promps, DefinitionsDirectory)
 # do some illustrations for checking/publication
 IllustrationsDirectory = os.path.join(dataDirectory,  config['output illustrations directory'])
 print("Saving illustrations to {0}".format(os.path.abspath(IllustrationsDirectory)))
-phastapromp.illustrateGraph(graphconfig, promps, IllustrationsDirectory)
+phastapromep.illustrateGraph(graphconfig, promps, IllustrationsDirectory)
 
 
 

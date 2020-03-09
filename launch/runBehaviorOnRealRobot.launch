@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 
 <launch>
-  <include file="$(find phastapromp)/launch/runBehavior.launch" >
+  <include file="$(find phastapromep)/launch/runBehavior.launch" >
   <arg name="for_real" default="true"/>
   </include>
 </launch>

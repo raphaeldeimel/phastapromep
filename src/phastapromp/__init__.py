@@ -1,3 +1,3 @@
-__all__ = ['_phastapromp']
-from ._phastapromp import *
+__all__ = ['_phastapromep']
+from ._phastapromep import *
 

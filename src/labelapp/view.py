@@ -104,9 +104,9 @@ yaml.SafeLoader.add_constructor("tag:yaml.org,2002:python/unicode", yaml_constru
 try: # get global path for kivy images. todo -> fixing this
     import rospkg
     rospack = rospkg.RosPack()
-    global_path_to_kivy_images = "{}/share/labelapp_images/".format(rospack.get_path('phastapromp'))
+    global_path_to_kivy_images = "{}/share/labelapp_images/".format(rospack.get_path('phastapromep'))
 except:
-    print("Warning: No LabelApp-Images inside labelapp_images Folder in phastapromp.")
+    print("Warning: No LabelApp-Images inside labelapp_images Folder in phastapromep.")
 
 class KivyRootWidget(RelativeLayout):
 
@@ -771,7 +771,7 @@ class KivyRootWidget(RelativeLayout):
         # Prevents Access on Datahandler and stop all actions - undo this after Thread finished (Dissmissbtn)
         self.playbackController.PublisherMode = PandaPublisherModeEnum.wait_for_behavior 
  
-        self.learnGraphSubprocess = subprocess.Popen(["rosrun", "phastapromp", "learnGraph2.py","session.yaml"], stdout=subprocess.PIPE, universal_newlines=True)
+        self.learnGraphSubprocess = subprocess.Popen(["rosrun", "phastapromep", "learnGraph2.py","session.yaml"], stdout=subprocess.PIPE, universal_newlines=True)
         fl = fcntl.fcntl(self.learnGraphSubprocess.stdout, fcntl.F_GETFL)
         fcntl.fcntl(self.learnGraphSubprocess.stdout, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
@@ -825,10 +825,10 @@ class KivyRootWidget(RelativeLayout):
             self.SimulatingPhastaPromp = True
             self.disablePublishing()#safety
            
-            self.startmstatemonitornode = subprocess.Popen(["rosrun", "phastapromp", "mstatemonitornode.py"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)       
-            self.startphastamonitor = subprocess.Popen(["rosrun", "phastapromp", "phastamonitor.py"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)       
-            self.startactivationsmonitor = subprocess.Popen(["rosrun", "phastapromp", "phasesactivationsmonitor.py"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)       
-            self.SimulationSubprocess = subprocess.Popen(["roslaunch", "phastapromp", "testBehavior.launch"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)
+            self.startmstatemonitornode = subprocess.Popen(["rosrun", "phastapromep", "mstatemonitornode.py"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)       
+            self.startphastamonitor = subprocess.Popen(["rosrun", "phastapromep", "phastamonitor.py"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)       
+            self.startactivationsmonitor = subprocess.Popen(["rosrun", "phastapromep", "phasesactivationsmonitor.py"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)       
+            self.SimulationSubprocess = subprocess.Popen(["roslaunch", "phastapromep", "testBehavior.launch"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)
             self.simulationbtn.background_color = KivyColors.red
 
         else:

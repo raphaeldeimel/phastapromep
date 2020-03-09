@@ -3,7 +3,7 @@
 
 This repository contains the packages necessary to learn and execute Phasestatemachine + ProMP beahviors
 
-The main entry point is the phastapromp package, which provides a set of launch files for recording demonstrations, learning promps and state graphs, and executing the learnt behaviors in simulation or on  the robot
+The main entry point is the phastapromep package, which provides a set of launch files for recording demonstrations, learning promps and state graphs, and executing the learnt behaviors in simulation or on  the robot
 
 ## Setup
 
@@ -11,7 +11,7 @@ Create catkin ws, checkout repo into src, run catkin_make, source setup.bash.
 
 Install ros dependencies
 
-    rosdep --ignore-src install phastapromp
+    rosdep --ignore-src install phastapromep
 
 apt-get install python-kivy
 
@@ -24,7 +24,7 @@ Install additional python dependencies
     
 
 ## Tell git to update subgits automatically
-You probably want to switch on automatic subgit-pulling for the phastapromp git:
+You probably want to switch on automatic subgit-pulling for the phastapromep git:
 
     git config --local submodule.recurse true
 

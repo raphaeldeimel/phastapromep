@@ -14,7 +14,7 @@
   <rosparam if="$(arg for_real)" command="load" file="$(find controller_panda_mti)/config/$(env PANDA_MAC).yaml" />
 
   <param name="/DefinitionsDirectory" value='behavior/' />
-  <rosparam command="load" file="$(env ROS_DATA)/behavior/phasta.yaml" ns="phastapromp" />
+  <rosparam command="load" file="$(env ROS_DATA)/behavior/phasta.yaml" ns="phastapromep" />
   
   <param unless="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro  $(find franka_description)/robots/panda_arm.urdf.xacro"/>
   <param if="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro  $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />
@@ -30,7 +30,7 @@
   
 </group>
 
-  <node name="pdcontrollergoal2jointstate" pkg="phastapromp" type="pdcontrollergoal2jointstatepublisher.py"  output="screen" required="true">
+  <node name="pdcontrollergoal2jointstate" pkg="phastapromep" type="pdcontrollergoal2jointstatepublisher.py"  output="screen" required="true">
    <remap from="/panda/joint_states_goal" to="/joint_states"/>
    <remap from="/panda/pdcontroller_goal" to="/mixer/pdcontroller_goal"/>
  </node>
@@ -51,9 +51,9 @@
 
 
 
-  <node name="phasta" pkg="phastapromp" type="phastanode.py"  output="screen">
+  <node name="phasta" pkg="phastapromep" type="phastanode.py"  output="screen">
   </node>
-  <node name="movementmixer" pkg="phastapromp" type="prompmixernode.py"  output="screen">
+  <node name="movementmixer" pkg="phastapromep" type="prompmixernode.py"  output="screen">
       <remap unless="$(arg controller_use_mstate)" from="/mixer/pdcontroller_goal" to="/panda/pdcontroller_goal"/>
 
   </node>

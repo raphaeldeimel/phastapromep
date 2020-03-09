@@ -2,7 +2,7 @@
 
 <launch>
 
-  <node name="mstatemonitor" pkg="phastapromp" type="mstatemonitornode.py"  output="screen">
+  <node name="mstatemonitor" pkg="phastapromep" type="mstatemonitornode.py"  output="screen">
       <env name="OPENBLAS_NUM_THREADS" value="1" />
   </node>
 

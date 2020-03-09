@@ -25,7 +25,7 @@ import os
 import rospy
 from sensor_msgs.msg import JointState
 from panda_msgs_mti.msg import PDControllerGoal8, RobotState8, RobotEEState
-import phastapromp
+import phastapromep
 import promp
 import pandadynamicsmodel
 
@@ -114,7 +114,7 @@ jointposmax[-1] = 0.2
 
 currentJointState = _np.zeros((mechanicalStateCount, dofs))
 #set start posture to the controller goal of the first state:
-currentJointState[iPos,:] = rospy.get_param('phastapromp/state_controllers')[rospy.get_param('phastapromp/initial state', 0)]['desiredPosition']
+currentJointState[iPos,:] = rospy.get_param('phastapromep/state_controllers')[rospy.get_param('phastapromep/initial state', 0)]['desiredPosition']
 
 goal = _np.array(currentJointState)
 kp = _np.zeros((dofs))

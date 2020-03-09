@@ -1,8 +1,8 @@
 <?xml version="1.0" ?>
 
 <launch>
-  <include file="$(find phastapromp)/launch/startGUIs.launch" />
-  <include file="$(find phastapromp)/launch/runPerceptionMockup.launch" />
+  <include file="$(find phastapromep)/launch/startGUIs.launch" />
+  <include file="$(find phastapromep)/launch/runPerceptionMockup.launch" />
 </launch>
 
 

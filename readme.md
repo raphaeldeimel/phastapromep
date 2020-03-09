@@ -1,4 +1,4 @@
-# ProMP teacher with LabelApp2 / phastapromp Tutorial
+# ProMP teacher with LabelApp2 / phastapromep Tutorial
 
 
 In this pacakge you find an example of using the LabelApp to create a graph of motions from demonstrations on the robot. In general, you follow the folowing work flow:
@@ -36,7 +36,7 @@ $ROS_DATA is used by the scripts to locate all data. using this alias, you can o
 The LabelApp expects a session.yaml in $ROS_DATA for its configuration.
 
     mkdir myfirstsession && cd myfirstsession
-    roslaunch phastapromp labelapp.launch
+    roslaunch phastapromep labelapp.launch
 
 On a computer able to talk to Franka's Panda, start the pdcontroller :
 
@@ -80,14 +80,14 @@ The resulting data are saved into a directory (usually "behavior/"). Additionall
 
 ## Run the behavior
 
-Once you generated the "behavior/" directory, you can load and execute it using the nodes in the phastapromp package.
+Once you generated the "behavior/" directory, you can load and execute it using the nodes in the phastapromep package.
 
 To start a phase-state-machine node, a prompmixer node, and a simulated robot, run:
-    roslaunch phastapromp startGUIsAndPerceptionMockupAndBehavior.launch
+    roslaunch phastapromep startGUIsAndPerceptionMockupAndBehavior.launch
 
 
 After you checked(!) that the behavior works in simulation, you can execute the behavior on a real robot with:
-    roslaunch phastapromp startGUIsAndPerceptionMockupAndBehaviorOnRealRobot.launch
+    roslaunch phastapromep startGUIsAndPerceptionMockupAndBehaviorOnRealRobot.launch
 
 -------------------------------------------------------------------------------------------
 ---------------------------    Documentation    ----------------------------------------------

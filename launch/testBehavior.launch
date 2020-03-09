@@ -11,23 +11,23 @@
 
 
   <param name="/DefinitionsDirectory" value='behavior/' />
-  <rosparam command="load" file="$(env ROS_DATA)/behavior/phasta.yaml" ns="phastapromp" />
+  <rosparam command="load" file="$(env ROS_DATA)/behavior/phasta.yaml" ns="phastapromep" />
   
 
 <group if="$(arg for_real)" >
-  <node name="pdcontrollergoal2jointstate" pkg="phastapromp" type="pdcontrollergoal2jointstatepublisher.py"  output="screen">
+  <node name="pdcontrollergoal2jointstate" pkg="phastapromep" type="pdcontrollergoal2jointstatepublisher.py"  output="screen">
    <remap from="/panda/joint_states_goal" to="/joint_states"/>
  </node>  
 </group>
   
-  <node unless="$(arg for_real)"   name="pdcontrolleremulator" pkg="phastapromp" type="pdcontrolleremulationnode.py"  output="screen">
+  <node unless="$(arg for_real)"   name="pdcontrolleremulator" pkg="phastapromep" type="pdcontrolleremulationnode.py"  output="screen">
         <remap from="/desired_joint_states" to="/joint_states"/>
   </node>
   
 
-  <node name="phasta" pkg="phastapromp" type="phastanode.py"  output="screen">
+  <node name="phasta" pkg="phastapromep" type="phastanode.py"  output="screen">
   </node>
-  <node name="movementmixer" pkg="phastapromp" type="prompmixernode.py"  output="screen">
+  <node name="movementmixer" pkg="phastapromep" type="prompmixernode.py"  output="screen">
       <remap from="/mixer/pdcontroller_goal" to="/panda/pdcontroller_goal"/>
   </node>
 

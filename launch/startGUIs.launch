@@ -2,13 +2,13 @@
 
 <launch>
   <env name="OPENBLAS_NUM_THREADS" value="1" />   <!--workaround for bug in libopenblas, causes extreme (1000x) sys cpu overhead on numpy matrix inversion-->
-  <node name="mstatemonitor" pkg="phastapromp" type="mstatemonitornode.py"  output="screen">
+  <node name="mstatemonitor" pkg="phastapromep" type="mstatemonitornode.py"  output="screen">
   </node>
 
-  <node name="phastamonitor" pkg="phastapromp" type="phastamonitornode.py"  output="screen">
+  <node name="phastamonitor" pkg="phastapromep" type="phastamonitornode.py"  output="screen">
   </node>
 
-  <node name="phasesactivationsmonitor" pkg="phastapromp" type="phasesactivationsmonitor.py"  output="screen">
+  <node name="phasesactivationsmonitor" pkg="phastapromep" type="phasesactivationsmonitor.py"  output="screen">
   </node>
   
   <param name="robot_description" command="$(find xacro)/xacro $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />

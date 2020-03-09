@@ -26,7 +26,7 @@ import promp
 import promp._tensorfunctions as _t
 import phasestatemachine
 import phasestatemachine.msg
-import phastapromp
+import phastapromep
 import yaml
 
 

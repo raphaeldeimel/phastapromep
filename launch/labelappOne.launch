@@ -18,7 +18,7 @@
 
   <param name="DemoSessionConfigFileName" value="session.yaml"/>
   
-  <node name="labelgui"  pkg="phastapromp" type="LabelApp.py" args="session.yaml" required="true" output="screen" />
+  <node name="labelgui"  pkg="phastapromep" type="LabelApp.py" args="session.yaml" required="true" output="screen" />
   <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(env ROS_DATA)/labelapp.rviz" />
   
 </launch>

@@ -27,7 +27,7 @@ import yaml
 
 import phasestatemachine
 import promp
-import phastapromp
+import phastapromep
 
 
 
@@ -38,6 +38,6 @@ with open(sys.argv[1]) as f:
 
 DefinitionsDirectory = os.path.join(os.path.expanduser(config['data directory']), config['output directory'])
 
-phasta, prompmixer = phastapromp.createPhaseStateMachine(DefinitionsDirectory)
+phasta, prompmixer = phastapromep.createPhaseStateMachine(DefinitionsDirectory)
     
 

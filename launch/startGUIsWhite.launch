@@ -2,7 +2,7 @@
 
 <launch>
   <param name="/monitors/dark_theme" value="False" />
-  <include file="$(find phastapromp)/launch/startGUIs.launch" >
+  <include file="$(find phastapromep)/launch/startGUIs.launch" >
   </include>
 </launch>
 

@@ -12,7 +12,7 @@
   <param if="$(arg load_gripper)" name="robot_description" command="$(find xacro)/xacro  '$(find franka_description)/robots/panda_arm_hand.urdf.xacro'" />
 
 
-  <node name="pdcontrollergoal2jointstate" pkg="phastapromp" type="pdcontrollergoal2jointstatepublisher.py"  output="screen"/>
+  <node name="pdcontrollergoal2jointstate" pkg="phastapromep" type="pdcontrollergoal2jointstatepublisher.py"  output="screen"/>
 
  <node if="$(arg wifi_leds)" pkg="simple_wifileds" name="led_visual_bridge" type="led_visual_bridge.py" >
   <param name="number_of_leds" type="int" value="4" />

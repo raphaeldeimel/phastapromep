@@ -10,7 +10,7 @@
 <node pkg="tf" type="static_transform_publisher" name="poi2panda" args="-0.25 0.55 0.0   3.14 0 0.0 panda_link0 poi 100" /> <!--args="-0.25 0.55 0.0   1.57 0 0.0 panda_link0 poi 100" />-->
 
 
-<include file="$(find phastapromp)/launch/labelappOne.launch" />
+<include file="$(find phastapromep)/launch/labelappOne.launch" />
 
 
 </launch>

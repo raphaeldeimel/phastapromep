@@ -25,7 +25,7 @@ from operator import itemgetter
 import promep
 import phasestatemachine
 import phasestatemachine.msg
-import phastapromp
+import phastapromep
 import pandadynamicsmodel
 
 

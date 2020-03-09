@@ -25,7 +25,7 @@ import os as _os
 import promp
 import phasestatemachine
 import phasestatemachine.msg
-import phastapromp
+import phastapromep
 
 import rospy, tf
 from sensor_msgs.msg import JointState
@@ -47,7 +47,7 @@ n_oversampling = 4
 phasta_dt = 1.0 / (n_oversampling * publish_hz)
 
 DefinitionsDirectory = rospy.get_param('DefinitionsDirectory', 'behavior/')
-phasta, prompmixer  = phastapromp.createPhaseStateMachine(DefinitionsDirectory, createPrompMixer=False)
+phasta, prompmixer  = phastapromep.createPhaseStateMachine(DefinitionsDirectory, createPrompMixer=False)
 
 phasta.updateDt(phasta_dt)
 
