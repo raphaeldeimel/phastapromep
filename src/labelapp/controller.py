@@ -79,7 +79,7 @@ class PandaPublisherModeEnum(Enum):
 
 
 def makeMetaDataIndex():
-    tuples = [('secs',None, None),('nsecs',None, None),('t',None, None)]
+    tuples = [('observed', 'time', 'secs'),('observed', 'time', 'nsecs'),('observed','time', 't')]
     for level1 ,level2 in (('observed', 'position'), 
                 ('observed','velocity'), 
                 ('observed', 'acceleration'), 
@@ -177,16 +177,12 @@ class LabelController(object):
         self.currentlyActiveTrajectoryNumber = None
                 
         #Instantiate publishers, and set which none to publish controller goals to:
-        rospy.getP
-
-        self.rosPublisherToPdcontroller = rospy.Publisher("pdcontroller_goal", PDControllerGoal8, queue_size=3)
-        self.rosPublisherToRviz = rospy.Publisher("pdcontroller_goal_simulation", PDControllerGoal8, queue_size=3)
+        self.rosPublisherToPdcontroller = rospy.Publisher("robot/pdcontroller_goal", PDControllerGoal8, queue_size=3)
+        #self.rosPublisherToRviz = rospy.Publisher("robot/pdcontroller_goal_simulation", PDControllerGoal8, queue_size=3)
 
         # listen to for new Trajectories
-        topic  = "currentstate".format(topic_prefix)# published by pdcontroller state publisher
         self.observedRobotStatesList = []# Buffer to Store one Trajectory at a time(the current one)
-        rospy.Subscriber(topic,RobotState8,self.PandaRobotStateCallback)
-        print("Topic: {}".format(topic))
+        rospy.Subscriber("robot/currentstate", RobotState8, self.PandaRobotStateCallback)
         self.dof = len(self.sessionConfig['joint indices list'])
         #print("DOF: {}".format(self.dof))
 
@@ -243,7 +239,7 @@ class LabelController(object):
             stores a backup into the database backend
         """           
         if(len(self.observedRobotStatesList) < 3):
-            print("Warning. No or not enough samples collected! Ignoring request to save")
+            rospy.logerr("Warning. No or not enough samples collected! Ignoring request to save")
             return
 
         self.PublisherMode = PandaPublisherModeEnum.prepare_for_publishing
@@ -251,23 +247,26 @@ class LabelController(object):
         df = pd.DataFrame(self.observedRobotStatesList, columns = metaDataIndex) #todo: use pandas's downsampling methods
         
         #compute the relative time float-value post-hoc:
-        ref_timestamp = df[[u'secs','nsecs']].iloc[0]
-        rel_timestamps = df[[u'secs','nsecs']] - ref_timestamp
-        df['t']  = rel_timestamps['secs'] + 1e-9 * rel_timestamps['nsecs']  #add a (somewhat redundant) relative time column to make life easier
+        times = df['observed', 'time']
+        ref_timestamp = times.iloc[0]
+        rel_timestamps = times - ref_timestamp
+        print(rel_timestamps)
+        df[('observed', 'time', 't')]  = rel_timestamps['secs'] + 1e-9 * rel_timestamps['nsecs']  #add a (somewhat redundant) relative time column to make life easier
 
-        print(self.metadata.dtypes)
         newentry_number = self.getNextObservationId()
-        newentry = pd.DataFrame({
+        d_line = {
             'i': newentry_number,
             'label': 'unlabeled',
             'playback_stiffness': self.defaultStiffness,
             'inpoint': 0,
             'outpoint': len(df.index)-1,
             'samples': len(df.index),
-            'duration': df['t'].iloc[-1]
-        }, index=[newentry_number] )
+            'duration': df[('observed', 'time', 't')].iloc[-1]
+        }
+        print(d_line)
+        newentry = pd.DataFrame(d_line, index=[newentry_number] )
         #save data also to database backend:
-        self.store.put("observations/take{0}".format(newentry_number), df)
+        self.store.put("observations/observation{0}".format(newentry_number), df)
         self.metadata = pd.concat([self.metadata,newentry])
         self.commitMetaData()
                 
@@ -355,7 +354,7 @@ class LabelController(object):
         self.activeLabel = label
 
         #read in the now active trajectory:
-        self.currentTrajectory = self.store.get("observations/take{}".format(requestedTrajectory)) 
+        self.currentTrajectory = self.store.get("observations/observation{}".format(requestedTrajectory)) 
         self.currentlyActiveTrajectoryNumber = requestedTrajectory
         self.currentTrajectoryInPoint = row['inpoint']
         self.currentlyPublishingSampleIndex = self.currentTrajectoryInPoint
@@ -488,20 +487,25 @@ class LabelController(object):
         
         if self.is_publishing:
             self.rosPublisherToPdcontroller.publish(PDControllerGoal8Msg)
-            self.rosPublisherToRviz.publish(PDControllerGoal8Msg)                
+            #self.rosPublisherToRviz.publish(PDControllerGoal8Msg)                
         else:
-            self.rosPublisherToRviz.publish(PDControllerGoal8Msg)
+            #self.rosPublisherToRviz.publish(PDControllerGoal8Msg)
+            pass
 
 
     def _convertRowToPDgoalMsg(self,row, playback_stiffness):
-        """ Converts numpy-array red from HDF5 to PDControllerGoal8 for replaying on panda """
+        """ Converts numpy-array read from HDF5 to PDControllerGoal8 for replaying on panda """
         msg=PDControllerGoal8()
-        msg.stamp.secs =    row['secs']
-        msg.stamp.nsecs =   row['nsecs']
+        time = row[('observed', 'time')]
+        positions = row[('observed', 'position')]
+        velocities = row[('observed', 'position')]
+        torques = row[('observed', 'position')]
+        msg.stamp.secs = time['secs']
+        msg.stamp.nsecs = time['nsecs']
         for i in range(self.dof):
-            msg.position[i] =   row['q', str(i)]
-            msg.velocity[i] =   row['dq',str(i)]
-            msg.torque[i] =  row['tau', str(i)]
+            msg.position[i] =  positions[str(i)]
+            msg.velocity[i] =  velocities[str(i)]
+            msg.torque[i] =    torques[str(i)]
             msg.kp[i] = playback_stiffness*self.kp_max[i] # soft
             msg.kv[i] = playback_stiffness*self.kd_max[i] #and slow
         return msg
@@ -632,7 +636,7 @@ class LabelController(object):
         print("Gripper: {0}".format(self.grippermode))    
         if self.is_publishing:
             self.rosPublisherToPdcontroller.publish(msg)
-        self.rosPublisherToRviz.publish(msg)
+        #self.rosPublisherToRviz.publish(msg)
  
         return msg
         
@@ -711,7 +715,7 @@ class LabelController(object):
                     self.currentlyPublishingSampleIndex = None
                else:
                     #advance in time to the correct sample:
-                    t = self.currentTrajectory['t',np.nan] #we need add nan as placeholder for 2nd level of multiindex here
+                    t = self.currentTrajectory['observed', 'time', 't']
                     relativeTimeofLastPublication = t.iloc[self.lastPublishedSampleIndex]
                     durationSinceLastPublication = (now.secs - self.realTimeOfLastPublication.secs)+1e-9*(now.nsecs - self.realTimeOfLastPublication.nsecs)
                     if self.TrajectoryTimeDirection > 0:  #trajectory time moves forward

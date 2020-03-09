@@ -68,7 +68,7 @@ def ExtractStateGraph(observationsMetadata):
 
     Heuristic:
         Assume that observations are paths through the state graph
-        Paths start and end at "discarded" takes, or at the start or end of the observationsMetadata
+        Paths start and end at "discarded" observations, or at the start or end of the observationsMetadata
     """
     #Assign state numbers and collect likely transitons:
     stateCount = 0
@@ -89,12 +89,12 @@ def ExtractStateGraph(observationsMetadata):
                         )
     observationsMetadata_padded.append({'Label':'discarded'})
 
-    for take_prev, take, take_next in zip(observationsMetadata_padded[:-2], observationsMetadata_padded[1:-1],  observationsMetadata_padded[2:]):
+    for observation_prev, observation, observation_next in zip(observationsMetadata_padded[:-2], observationsMetadata_padded[1:-1],  observationsMetadata_padded[2:]):
         #if preceeding/succeedings state of a transition has not been assigned a number yet, do so:
-        label_prev = take_prev['Label']
-        label = take['Label']
-        label_next = take_next['Label']
-        if label == 'discarded': #skip the take
+        label_prev = observation_prev['Label']
+        label = observation['Label']
+        label_next = observation_next['Label']
+        if label == 'discarded': #skip the observation
             continue
 
         predecessor, successor = (-1, -1)
@@ -126,12 +126,12 @@ def ExtractStateGraph(observationsMetadata):
             preceeding_successor = Transitions[label_prev][1]
             if preceeding_successor != predecessor and preceeding_successor != -1:
                 print("Warning: preceeding Successor of {0} and Predecessor of {1} do not match!".format(label_prev, label))
-                print( take_prev["Count"],take_prev["Label"], take["Count"],take["Label"], preceeding_successor, predecessor )
+                print( observation_prev["Count"],observation_prev["Label"], observation["Count"],observation["Label"], preceeding_successor, predecessor )
         if label_next in Transitions:
             succeeding_predecessor = Transitions[label_next][0]
             if succeeding_predecessor != successor and succeeding_predecessor != -1:
                 print("Warning: Successor of {0} and succeeding predecessor of {1} do not match!".format(label, label_next))
-                print(take["Count"],take["Label"], take_next["Count"],take_next["Label"], succeeding_predecessor, successor )
+                print(observation["Count"],observation["Label"], observation_next["Count"],observation_next["Label"], succeeding_predecessor, successor )
 
         #save transition and sample count:
         Transitions[label] = [predecessor, successor]
@@ -215,7 +215,7 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
             raise NotImplementedError("Only trim_stragey: inpoint_outpoint is supported!")
         observations=[]
         for i in observations_indices:
-            observation_untrimmed = observationsHDFStore.get('observations/take{0}'.format(i))
+            observation_untrimmed = observationsHDFStore.get('observations/observation{0}'.format(i))
             metadata = observationsMetadata.iloc[i]
 
             #trim data:
