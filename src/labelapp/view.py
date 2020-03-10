@@ -187,7 +187,7 @@ class KivyRootWidget(RelativeLayout):
 
         Labelmenu = RelativeLayout(orientation='horizontal',size_hint=(0.5,0.6),pos_hint={'x': 0.2, 'y': 0.04})
         Interface2.add_widget(Labelmenu)
-        Vieweroptions,Vieweroptions2,self.btnreverseback,self.btnautoredo_record,self.toggle_publishingswitch,self.recordButton,self.simulationbtn = ViewerOptionsCreator().create_widgets(parent=self,TooltipConfig_List=self.Tooltip_Config_List)
+        Vieweroptions,Vieweroptions2,self.simulationbtn = ViewerOptionsCreator().create_widgets(parent=self,TooltipConfig_List=self.Tooltip_Config_List)
         Interface2.add_widget(Vieweroptions)
         Interface2.add_widget(Vieweroptions2)
 
@@ -294,8 +294,6 @@ class KivyRootWidget(RelativeLayout):
 
         self.goalstatus = Label(text = '',font_size=18)
         self.container.layout_helper.add_widget(self.goalstatus)
-
-        self.disablePublishing()
 
         # ========================= MTI-Logo ================================================#
 
@@ -407,8 +405,6 @@ class KivyRootWidget(RelativeLayout):
                 'numpad4':          "reduce Certainty",
                 'left':             "reduce Certainty",
 
-                'numpaddivide':     "auto move back",
-                'numpadmul':        "auto redo and record",
 
                 'backspace':        "Play",    
                 'numpadsubstract':  "PlayBackwards",
@@ -440,20 +436,16 @@ class KivyRootWidget(RelativeLayout):
             "increase Stiffness":  self.playbackController.increaseStiffnessOfCurrentActiveTrajectory,
             "reduce Stiffness":    self.playbackController.decreaseStiffnessOfCurrentActiveTrajectory,
 
-            "auto move back":      self.auto_reverse_handler ,
-            "auto redo and record":self.auto_redo_record_handler,
-
-            "Play" :               self.toggleReplaying, #request Replay of Trajectory
-            "Play and record" :    self.toggleReplaying_and_record, #request Replay of Trajectory
+            "Play" :               self.playbackController.toggleReplaying , #request Replay of Trajectory
+            "Play and record" :    self.playbackController.toggleRecordReplay, #request Replay of Trajectory
 
             "PlayBackwards":       self.togglePlayBackwards,
             "jumpBack":            self.jumpBack,
 
-            "record":              self.toggleRecordingPandaAndBtnState,
+            "record":              self.playbackController.toggleRecordingPanda,
 
             "switch gripper":      self.setGripper,
 
-            "publish":             self.toggle_publishing,
             "run behavior":        self.runBehaviorSimulation,
 
         }
@@ -593,53 +585,18 @@ class KivyRootWidget(RelativeLayout):
         """ Commands PlaybackController to Pause the Trajectory """
         self.playbackController.pauseTrajectory() 
 
-    def toggleReplaying_and_record(self,instance=0):
+    def toggleReplayRecord(self,instance=0):
         """
         Replay the Trajectory. And Start recording.
         """
-        if type(instance) == TooltipButton or type(instance) == TooltipToggleButton :
-            if instance.state == "normal":
-                self.recordButton.state = "normal"
-                self.playbackController.pauseTrajectory()
-                self.playbackController.disableRecordingPanda()
-                return
-            else:
-                self.recordButton.state = "down"
-                self.playbackController.enableRecordingPanda()
-                self.playbackController.startPlaying()
-                return
-
-        if type(instance) == TooltipActionButton: #keyboard or Actionbutton  
-            self.toggleRecordingbtnstate()
-            self.toggleRecordingPanda(instance=instance) #toggles the State
-
-        else:
-            self.toggleRecordingPandaAndBtnState()
-        self.playbackController.toggleReplaying(direction=1)
+        self.playbackController.toggleRecordReplay()
         return
 
     
-    def toggleRecordingPandaAndBtnState(self,instance=0,state=0):
+    def toggleRecording(self,instance=0,state=0):
         """ Callback from Actionbutton to toggle recording Panda """
-        self.toggleRecordingPanda()
-        self.toggleRecordingbtnstate()
+        self.playbackController.toggleRecordingPanda()
 
-    def toggleRecordingbtnstate(self,instance=0,state=0):
-        """ Switches the button Color to signal user whether recording is active or not. """
-        if self.recordButton.state == "normal":
-            self.recordButton.state = "down"
-        else:
-            self.recordButton.state ="normal"
-
-    def toggleRecordingPanda(self,instance=0,state=0):
-        """ Handler for toggling Recording Panda """ 
-        switch_ = []    
-        switch_.append(self.playbackController.disableRecordingPanda)
-        switch_.append(self.playbackController.enableRecordingPanda)
-        # distinguish between TooltipToggleButton and Actionbutton
-        # both behave differently
-        cmd = ((self.recordButton.state != "normal") == isinstance(instance,TooltipToggleButton)) 
-        switch_[cmd]()
 
 
     def togglePlayBackwards(self,instance=0,state=0):
@@ -673,60 +630,12 @@ class KivyRootWidget(RelativeLayout):
             self.playbackController.loadActiveTrajectory(self.playbackController.currentlyActiveTrajectoryNumber-1)
 
 
-    def auto_reverse_handler(self,instance=0,state=0):
-        """ Switches between automatically moving back to the Trajectories when teaching is finished. """
-        if(self.playbackController.automovetostart):
-            self.btnreverseback.background_color = KivyColors.white
-            self.playbackController.automovetostart = False
-        else:
-            self.btnreverseback.background_color = KivyColors.green
-            self.playbackController.automovetostart = True
-
-    def auto_redo_record_handler(self,instance=0,state=0):
-        """ Switches between automatically redoing and recording the Trajectories when teaching is finished or not."""
-        if(self.playbackController.autoredo_record):
-            self.btnautoredo_record.background_color = KivyColors.white
-            self.playbackController.autoredo_record = False
-            self.playbackController.autoreplay = False
-        else:
-            self.btnautoredo_record.background_color = KivyColors.green
-            self.playbackController.autoredo_record = True
-            self.playbackController.autoreplay = True
-
-    def switch_auto_redo_off(self):
-        """ Playback Controller calls that Function when Autoredo-record is finished
-        """
-        self.btnautoredo_record.background_color = KivyColors.white
-        self.playbackController.autoredo_record = False
-        self.playbackController.autoreplay = False    
-
 
     def setGripper(self,instance=0,state=0):
         """ Tries to command last Position to Panda (hold position), but with  
             Gripperposition toggled.
         """ 
         self.playbackController.setGripper(mode="toggle")
-        if isinstance(instance,TooltipButton):
-            if instance.state == 'normal':
-                instance.background_color = KivyColors.white
-            else:
-                instance.background_color = KivyColors.blue
-
-    def toggle_publishing(self, instance=0,value=0):
-        """ Toggles between publishing Samples to Panda or Simulation """
-        if(self.playbackController.is_publishing == True):  
-            self.disablePublishing()
-        else:
-            self.enablePublishing()    
-
-    def disablePublishing(self):
-        """ Commands PlaybackController to publish Samples to RVIZ-Simulation instead of real Panda """
-        self.playbackController.disablePublishing()
-
-
-    def enablePublishing(self):
-        """ Enables Publishing Samples to Panda if playing Samples is ongoing."""
-        self.playbackController.enablePublishing()
 
         
         
@@ -815,7 +724,7 @@ class KivyRootWidget(RelativeLayout):
                 self.learnGraphSubprocess.kill()
             except:
                 print("Learn Behavior Subprocess already ended.")
-        self.playbackController.PublisherMode = PandaPublisherModeEnum.finished_trajectory
+        self.playbackController.PublisherMode = PandaPublisherModeEnum.idle
         self.DisplayUpdateTimer = Clock.schedule_interval(self.updateDisplayedValues, self.InterfaceUpdateIntervall)#10Hz
         print("Learn Behavior ended.")
 
@@ -823,7 +732,6 @@ class KivyRootWidget(RelativeLayout):
         """ Toggles the parallel Simulation of the phastaprom phase state machnine"""
         if self.SimulatingPhastaPromp == False :
             self.SimulatingPhastaPromp = True
-            self.disablePublishing()#safety
            
             self.startmstatemonitornode = subprocess.Popen(["rosrun", "phastapromep", "mstatemonitornode.py"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)       
             self.startphastamonitor = subprocess.Popen(["rosrun", "phastapromep", "phastamonitor.py"], stdout=subprocess.PIPE,preexec_fn=os.setsid, universal_newlines=True)       
@@ -850,10 +758,10 @@ class KivyRootWidget(RelativeLayout):
         if self.playbackController.PublisherMode == PandaPublisherModeEnum.wait_for_behavior:
             return False #nothing to do anyway
         currentlyActiveTrajectoryNumber = self.playbackController.getCurrentlyActiveTrajectoryNumber()
-        if currentlyActiveTrajectoryNumber is None:
-            return
-            
-        row = self.playbackController.metadata.iloc[currentlyActiveTrajectoryNumber]
+        if currentlyActiveTrajectoryNumber is None:        
+            row = None
+        else:
+            row = self.playbackController.metadata.iloc[currentlyActiveTrajectoryNumber]
         mode = self.playbackController.PublisherMode
         currentSample = self.playbackController.currentlyPublishingSampleIndex
         
@@ -868,16 +776,21 @@ class KivyRootWidget(RelativeLayout):
                 Rectangle(size=self.container.layout_helper.size,
                                     pos=self.container.layout_helper.pos)
    
-        self.currentTrajectoryNumberWidget.text = str(currentlyActiveTrajectoryNumber)
-        self.statusfield.text = str(mode.name)
-        self.samplecounter.text  = "{0}| {1} | {2}".format(row['inpoint'],currentSample,row['outpoint'])
-        if self.playbackController.is_publishing:
-            self.goalstatus.text = "Real robot + Simulator"
+        if currentlyActiveTrajectoryNumber is None:
+            self.currentTrajectoryNumberWidget.text = "-"
         else:
-            self.goalstatus.text = "Simulator only"
-#        self.goalstatus.text = "Playback Stiffness: {0}".format(row['playback_stiffness'])
-        
-        self.TrajectoryProgressBar.update_value(value=float(currentSample)/row['samples'])
+            self.currentTrajectoryNumberWidget.text = str(currentlyActiveTrajectoryNumber)
+        self.statusfield.text = str(mode.name)
+        if row is None:
+            self.samplecounter.text  = ""
+            self.goalstatus.text = ""
+        else:
+            self.samplecounter.text  = "{0}| {1} | {2}".format(row['inpoint'],currentSample,row['outpoint'])
+            self.goalstatus.text = "Playback Stiffness: {0}".format(row['playback_stiffness'])
+        if row is None or currentSample is None:
+            self.TrajectoryProgressBar.update_value(value=0.0)
+        else:
+            self.TrajectoryProgressBar.update_value(value=float(currentSample)/row['samples'])
         
         if self.LedBarometer != None:   
             wifiled = led_color.VisualOutput()
@@ -935,8 +848,8 @@ class KivyRootWidget(RelativeLayout):
         self.updateCutlistinScrollview(i,self.StartCursorpos,self.EndCursorpos)
         self.TrajectoryProgressBar.update_value(value=value, Slider1=self.StartCursorpos,Slider2=self.EndCursorpos)      
 
-        if self.debouncer < 2:  # less than two callbacks in command_queue
-            self.playbackController.PublisherMode = PandaPublisherModeEnum.publishSample
+#        if self.debouncer < 2:  # less than two callbacks in command_queue
+#            self.playbackController.updateRobotStateOnce()
         self.debouncer = 0    #count again    
 
 
@@ -1123,13 +1036,13 @@ class PandaPublisherColorSwitch():
         switch = {'PandaPublisherModeEnum.replay_requested': KivyColors.red_dark,
                                 'PandaPublisherModeEnum.paused_trajectory': KivyColors.purple,
                                 'PandaPublisherModeEnum.replaying_trajectory': KivyColors.blue,
-                                'PandaPublisherModeEnum.finished_trajectory': KivyColors.green_dark,
+                                'PandaPublisherModeEnum.idle': KivyColors.green_dark,
                                 'PandaPublisherModeEnum.prepare_for_publishing': KivyColors.grey,
                                 'PandaPublisherModeEnum.advance_initial_position': KivyColors.orange_dark,
                                 'PandaPublisherModeEnum.publishSample': KivyColors.nac,
                                 'PandaPublisherModeEnum.wait_for_behavior': KivyColors.yellow_dark,
-                                'PandaPublisherModeEnum.endPublishing': KivyColors.nac
-
+                                'PandaPublisherModeEnum.endPublishing': KivyColors.nac,
+                                'PandaPublisherModeEnum.recording': KivyColors.red,
                                 }
         return switch[str(publisherMode)]
 
@@ -1137,12 +1050,13 @@ class PandaPublisherColorSwitch():
         switch = {'PandaPublisherModeEnum.replay_requested': 'red',
                             'PandaPublisherModeEnum.paused_trajectory': 'purple',
                             'PandaPublisherModeEnum.replaying_trajectory': 'blue',
-                            'PandaPublisherModeEnum.finished_trajectory': 'green',
+                            'PandaPublisherModeEnum.idle': 'green',
                             'PandaPublisherModeEnum.prepare_for_publishing': 'white',
                             'PandaPublisherModeEnum.advance_initial_position': 'orange',
                             'PandaPublisherModeEnum.publishSample': 'nac',
                             'PandaPublisherModeEnum.wait_for_behavior': 'yellow',
-                            'PandaPublisherModeEnum.endPublishing': 'nac'
+                            'PandaPublisherModeEnum.endPublishing': 'nac',
+                            'PandaPublisherModeEnum.recording': 'red',
                             }     
         return switch[str(publisherMode)]
 
@@ -1663,7 +1577,11 @@ class LabelAppRvizPlayer(RelativeLayout):
         layout_helper.add_widget(parent.togglereplaybtn)
         
         btn =  TooltipImageButton(tooltip_config=TooltipConfig_List['Record'],image_source = global_path_to_kivy_images+ 'recordbtn.png' )
-        btn.bind(on_press=parent.toggleRecordingPandaAndBtnState)      
+        btn.bind(on_press=parent.toggleRecording)      
+        layout_helper.add_widget(btn)  
+
+        btn =  TooltipImageButton(tooltip_config=TooltipConfig_List['PlayAndRecord'],image_source = global_path_to_kivy_images+ 'play_and_recordbtn.png' )
+        btn.bind(on_press=parent.toggleReplayRecord)      
         layout_helper.add_widget(btn)  
 
         #btn = TooltipImageButton(tooltip_config=TooltipConfig_List['nextLabel'],image_source = global_path_to_kivy_images+ 'nextbtn.png')
@@ -1697,90 +1615,14 @@ class ViewerOptionsCreator(object):
 
         btnsize=(0.4,0.3)
         btnpos={'x': 0.35, 'y': 0}
-
-        helper_for_viewer = BoxLayout(orientation='horizontal',size_hint=(1,1),pos_hint={'x': 0, 'y': 0})
-        Vieweroptions.add_widget(helper_for_viewer)
-
+        
         openbtn = TooltipButton(
-                    text = "G", 
+                    text = "Toggle Gripper", 
                     pos_hint=btnpos, size_hint = btnsize,
                     tooltip_config = TooltipConfig_List['OpenGripper']
         )
-
         openbtn.bind(on_press=parent.setGripper)
-        helper_for_viewer.add_widget(openbtn)
-
-
-        rosbagbtn = TooltipButton(
-                    text = "CR",
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = TooltipConfig_List['CreateRosbag']
-
-        )
-        helper_for_viewer.add_widget(rosbagbtn)   
-
-        """ ---------------------------- """
-        
-        helper_for_viewer = BoxLayout(orientation='horizontal',size_hint=(1,1),pos_hint={'x': 0, 'y': 0})
-        Vieweroptions.add_widget(helper_for_viewer)
-
-        btnreverseback = TooltipButton(
-                    text = "AB",
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = TooltipConfig_List['AutoMoveBack']
-      
-        )
-
-        btnreverseback.bind(on_press=parent.auto_reverse_handler)
-        helper_for_viewer.add_widget(btnreverseback)
-
-         
-        btnautoredo_record = TooltipButton(
-                    text = "AR",
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = TooltipConfig_List['AutoRedo']
-        )
-        btnautoredo_record.bind(on_press=parent.auto_redo_record_handler)
-        helper_for_viewer.add_widget(btnautoredo_record)
-        
-
-        """ ---------------------------- """
-
-        Vieweroptions2.add_widget(Label(text="On Real Robot",size_hint_y=0.1))    
-        toggle_publishingswitch = TooltipSwitch(
-                    pos_hint={'x': 0, 'y': 0}, size_hint = (1,0.3),
-                    tooltip_config = TooltipConfig_List['Publish']
-        )
-
-        toggle_publishingswitch.bind(active=parent.toggle_publishing)
-
-        Vieweroptions2.add_widget(toggle_publishingswitch)
-
-
-
-        Vieweroptions2.add_widget(Label(text='',size_hint_y=0.1)) #cheap vertical space
-
-        
-        """ Button needed for signal recording """    
-        recordButton = TooltipToggleButton(
-                    text = "record",
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = TooltipConfig_List['Record']
-        )
-        recordButton.bind(on_press=parent.toggleRecordingPanda)
-        Vieweroptions2.add_widget(recordButton)
-
-        replaybtn = TooltipButton(
-                    text = "Play And Record",
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = TooltipConfig_List['PlayAndRecord']
-                           
-        )
-
-        replaybtn.bind(on_press=parent.toggleReplaying_and_record)
-        Vieweroptions2.add_widget(replaybtn)
-
-        Vieweroptions2.add_widget(Label(text='',size_hint_y=0.1)) #cheap vertical space
+        Vieweroptions2.add_widget(openbtn)
 
         learnBtn = TooltipButton(
                 parent=parent,
@@ -1815,7 +1657,7 @@ class ViewerOptionsCreator(object):
 
 
 
-        return Vieweroptions,Vieweroptions2,btnreverseback,btnautoredo_record,toggle_publishingswitch,recordButton,simulationbtn
+        return Vieweroptions,Vieweroptions2, simulationbtn
 
 
 
@@ -1841,19 +1683,6 @@ class TooltipConfigListCreatorTool(object):
         TooltipConfig_List = {}
         TooltipConfig_List['OpenGripper'] = TooltipConfig(text=
             "Open the Gripper manually. MTI Panda Controller Software has to be running for that.")
-
-        TooltipConfig_List['CreateRosbag'] = TooltipConfig(text= 
-                    "Create a Rosbag to be compatible with LabelApp One (Can be used for exporting Data).")
-        
-    
-        TooltipConfig_List['AutoMoveBack'] = TooltipConfig(
-                    text= "If enabled Panda will automatically try to move back to start position,when Trajectory was teached. Key: >>{0}Divide | /{1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['AutoRedo'] = TooltipConfig(text= 
-                    "If enabled Panda will try to automatically redo Trajectory and start recording at once. Can be used to have easier handling. Feel free to gently correct the arm movements.Key: >>{0}Multiplication | +{1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['Publish'] = TooltipConfig(text=
-                    "Enable Publishing to Panda. Press Play to move the arm. Key: >> {0}Zero |0 {1}<<".format(mup_open,mup_close))
 
         TooltipConfig_List['Repeat'] = TooltipConfig(text= "Triggers a jump Back to Start and an immediately repeat of the Trajectory.".format(mup_open,mup_close))
 

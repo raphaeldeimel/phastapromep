@@ -52,7 +52,7 @@ One press starts the recording of a motion segment and another ends it. If every
 replay_requested:           red
 moving_to_start:            green
 replaying_trajectory:       blue
-finished_trajectory:        grey
+idle:        grey
 prepare_for_publishing:     black
 advance_initial_position:   red
 

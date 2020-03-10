@@ -69,12 +69,13 @@ class PandaPublisherModeEnum(Enum):
     replay_requested = 0
     paused_trajectory = 1
     replaying_trajectory = 2
-    finished_trajectory = 3
+    idle = 3
     prepare_for_publishing = 4 
     advance_initial_position = 5
     publishSample = 6
     wait_for_behavior = 7
     endPublishing = 8
+    recording = 9
 
 
 
@@ -107,7 +108,7 @@ class LabelController(object):
                 yaml.SafeLoader.add_constructor("tag:yaml.org,2002:python/unicode", yaml_constructor)
                 self.sessionConfig = yaml.safe_load(f)
         except IOError:
-                print("LabelApp: Could not open session configuration from: {0}".format(sessionConfigYamlpath))
+                rospy.logerror("LabelApp: Could not open session configuration from: {0}".format(sessionConfigYamlpath))
                 raise SystemExit(1)
 
 
@@ -134,6 +135,8 @@ class LabelController(object):
         self.stiffnessScaleStep = 0.8
         self.defaultStiffness = 0.2
         
+        self.TrajectoryTimeDirection = 1
+
         self.kp_max= pd.Series([80,70,70,70,60,40,40,30])
         self.kd_max= pd.Series([15,15,15,15,5,5,5,5])
         
@@ -155,14 +158,21 @@ class LabelController(object):
         self.cut_play_active = True 
 
 
-        self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
+        self.PublisherMode = PandaPublisherModeEnum.idle
+        self.lastPublisherMode = self.PublisherMode
+
+        self.pdgoal_during_passive_recording = PDControllerGoal8()
+        self.pdgoal_during_passive_recording.position = [0.0]*8
+        self.pdgoal_during_passive_recording.velocity = [0.0]*8
+        self.pdgoal_during_passive_recording.torque = [0.0]*8
+        self.pdgoal_during_passive_recording.kp = [0.0]*8 #zero gains on position
+        self.pdgoal_during_passive_recording.kv = [1.,1.,1.,1.,1.,0,0,0] #add some (slight) damping        
 
         self.last_robot_state_msg = []
         self.grippermode = "open"
 
         self.automovetostart = False # automatically moving to start when active
         self.autoreplay = False
-        self.autoredo_record = False
 
 
         self.start_up_in_progress = 0 #set to zero for having soft controller gains
@@ -172,7 +182,6 @@ class LabelController(object):
         # array that we use to deliver goals to pdcontroller_goal
         # for redoing Trajectories with higher certainty ...
         # and running the simulation
-        self.is_publishing = False # publishing to panda or not
         self.currentTrajectory = None
         self.currentlyActiveTrajectoryNumber = None
                 
@@ -184,7 +193,6 @@ class LabelController(object):
         self.observedRobotStatesList = []# Buffer to Store one Trajectory at a time(the current one)
         rospy.Subscriber("robot/currentstate", RobotState8, self.PandaRobotStateCallback)
         self.dof = len(self.sessionConfig['joint indices list'])
-        #print("DOF: {}".format(self.dof))
 
         self.sessionConfig['data directory'] = os.path.abspath(os.path.expanduser(self.sessionConfig['data directory']))
 
@@ -233,9 +241,15 @@ class LabelController(object):
         self.metadata['label'][TrajectoryNumber] = label
         self.commitMetaData()
 
-        
-    def store_and_prepare_for_republishing(self):
-        """ Moves all Samples recorded from self.observedRobotStatesList to self.currentTrajectory so that they can be replayed and
+
+
+    def enableRecordingPanda(self,keystroke = 0, mode = 0):
+        """ Enable recording samples from Panda. Samples are stored in self.observedRobotStatesList"""
+        self.isObserving = True
+
+    def disableRecordingPanda(self,keystroke=0,mode=0):
+        """ Disable recording Samples from Panda 
+            Moves all Samples recorded from self.observedRobotStatesList to self.currentTrajectory so that they can be replayed and
             stores a backup into the database backend
         """           
         if(len(self.observedRobotStatesList) < 3):
@@ -243,6 +257,7 @@ class LabelController(object):
             return
 
         self.PublisherMode = PandaPublisherModeEnum.prepare_for_publishing
+        self.isObserving = False
 
         df = pd.DataFrame(self.observedRobotStatesList, columns = metaDataIndex) #todo: use pandas's downsampling methods
         
@@ -250,7 +265,6 @@ class LabelController(object):
         times = df['observed', 'time']
         ref_timestamp = times.iloc[0]
         rel_timestamps = times - ref_timestamp
-        print(rel_timestamps)
         df[('observed', 'time', 't')]  = rel_timestamps['secs'] + 1e-9 * rel_timestamps['nsecs']  #add a (somewhat redundant) relative time column to make life easier
 
         newentry_number = self.getNextObservationId()
@@ -263,7 +277,6 @@ class LabelController(object):
             'samples': len(df.index),
             'duration': df[('observed', 'time', 't')].iloc[-1]
         }
-        print(d_line)
         newentry = pd.DataFrame(d_line, index=[newentry_number] )
         #save data also to database backend:
         self.store.put("observations/observation{0}".format(newentry_number), df)
@@ -275,7 +288,7 @@ class LabelController(object):
         self.currentlyPublishingSampleIndex =  self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber] -1   #set position for playback to the last row, as this is usually close to where the robot currently is
         self.observedRobotStatesList = [] # empty Buffer for new data to append
         self.kivyinterface.registerTrajectory(self.currentlyActiveTrajectoryNumber,self.activeLabel, certainty=self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber] )
-        self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
+        self.PublisherMode = PandaPublisherModeEnum.idle
         self.setKivySliderValuesandButtonforTrajectory(self.currentlyActiveTrajectoryNumber)
 
 
@@ -302,7 +315,7 @@ class LabelController(object):
         return True
 
     def pauseTrajectory(self):
-        """ Function pauses all ongoing action by PlaybackController by simply setting PublisherMode to finished_trajectory."""
+        """ Function pauses all ongoing action by PlaybackController by simply setting PublisherMode to idle."""
         if self.currentTrajectory is None:
             return        
         self.PublisherMode = PandaPublisherModeEnum.paused_trajectory
@@ -322,6 +335,10 @@ class LabelController(object):
         else:
             self.startPlaying()
 
+    def toggleRecordReplay(self):
+        self.toggleReplaying(direction=1)
+        self.toggleRecordingPanda()
+
     def jumpBack(self):
         """ Jump back to beginning of Trajectory """
         if self.currentTrajectory is None:
@@ -334,7 +351,14 @@ class LabelController(object):
         else:
             self.currentlyPublishingSampleIndex = 0
         self.PublisherMode = PandaPublisherModeEnum.publishSample
+        print("jumpback!")
         return True
+
+    def updateRobotStateOnce(self):
+        print("updateRobotStateOnce")
+        if self.PublisherMode == PandaPublisherModeEnum.idle:   
+            #self.PublisherMode = PandaPublisherModeEnum.publishSample
+            pass
 
     def loadActiveTrajectory(self,requestedTrajectory):
         """ Function to load (new) active Trajectory and handle all configuration
@@ -346,10 +370,10 @@ class LabelController(object):
         try:
             row = self.metadata.iloc[requestedTrajectory]
         except IndexError:
-            print('Info: requested observation does not exist in metadata!', requestedTrajectory)
+            rospy.loginfo('Requested observation does not exist in metadata!', requestedTrajectory)
             return
 
-        self.PublisherMode = PandaPublisherModeEnum.finished_trajectory # stop publishing
+        self.PublisherMode = PandaPublisherModeEnum.idle # stop publishing
         label = self.metadata['label'].iloc[requestedTrajectory]
         self.activeLabel = label
 
@@ -425,8 +449,6 @@ class LabelController(object):
         self.currentTrajectoryOutPoint = i
         
     def commitMetaData(self):
-        #print("Committing metadata to db")
-        print(self.metadata)
         self.store.put("metadata", self.metadata, format='table')
 
     def getUpdateTimePeriod(self):
@@ -434,18 +456,16 @@ class LabelController(object):
         return self._nextNominalPeriod
 
 
-    def enableRecordingPanda(self,keystroke = 0, mode = 0):
-        """ Enable recording samples from Panda. Samples are stored in self.observedRobotStatesList"""
-        self.isObserving = True
-        self.statusText = "Observing myself"
 
-    
-    def disableRecordingPanda(self,keystroke=0,mode=0):
-        """ Disable recording Samples from Panda """
-        if self.isObserving == True:
-            self.isObserving = False
-            self.statusText = "Idle!"
-            self.store_and_prepare_for_republishing()
+
+
+
+    def toggleRecordingPanda(self,keystroke = 0, mode = 0):
+        if self.isObserving:
+            self.disableRecordingPanda()
+        else:
+            self.enableRecordingPanda()
+            
 
 
     def PandaRobotStateCallback(self,msg):
@@ -459,9 +479,8 @@ class LabelController(object):
         self.observedRobotStatesList.append(row)
 
 
-    def publish_pd_controllergoal(self,PDgoal8=None,Samplecounter = None ):
+    def publish_pd_controllergoal(self,PDgoal8=None,Samplecounter = None, soft_start=True ):
         """ Function for Publishing a PDControllerGoal8.msg to Panda """
-
         if PDgoal8 != None:
             PDControllerGoal8Msg = PDgoal8
         else:
@@ -479,18 +498,15 @@ class LabelController(object):
             PDControllerGoal8Msg = self._convertRowToPDgoalMsg(row,playback_stiffness)# self.currentlyPublishingSampleIndex iterates the number of Samples in Trajectory
             PDControllerGoal8Msg.stamp = rospy.get_rostime() + rospy.Duration(0.1) #overwrite the trajectory's timestamp to the current real time
 
-
-        if self.start_up_in_progress < 10:
-            self.start_up_in_progress = self.start_up_in_progress + 1 # have first samples soft
-            PDControllerGoal8Msg.kp = 0.1*self.kp_max
-            PDControllerGoal8Msg.kv = 0.01*self.kd_max
-        
-        if self.is_publishing:
-            self.rosPublisherToPdcontroller.publish(PDControllerGoal8Msg)
-            #self.rosPublisherToRviz.publish(PDControllerGoal8Msg)                
+        if soft_start:
+            if self.start_up_in_progress < 10:
+                self.start_up_in_progress = self.start_up_in_progress + 1 # have first samples soft
+                PDControllerGoal8Msg.kp = 0.1*self.kp_max
+                PDControllerGoal8Msg.kv = 0.01*self.kd_max
         else:
-            #self.rosPublisherToRviz.publish(PDControllerGoal8Msg)
-            pass
+               self.start_up_in_progress=0 
+        self.rosPublisherToPdcontroller.publish(PDControllerGoal8Msg)
+
 
 
     def _convertRowToPDgoalMsg(self,row, playback_stiffness):
@@ -505,7 +521,7 @@ class LabelController(object):
         for i in range(self.dof):
             msg.position[i] =  positions[str(i)]
             msg.velocity[i] =  velocities[str(i)]
-            msg.torque[i] =    torques[str(i)]
+            msg.torque[i] =  0.0#  torques[str(i)]
             msg.kp[i] = playback_stiffness*self.kp_max[i] # soft
             msg.kv[i] = playback_stiffness*self.kd_max[i] #and slow
         return msg
@@ -514,7 +530,7 @@ class LabelController(object):
     def check_command_initial_position(self):
         """SafetyFeature that is called to check wether the start of Trajectory is reached. If not it will stay in loop and commands soft approach """
         if not isinstance(self.last_robot_state_msg,RobotState8):
-            print("Robot is not active!")
+            rospy.logwarn("Robot is not active!")
             return True
         if self.currentlyActiveTrajectoryNumber is None:
             return
@@ -523,13 +539,13 @@ class LabelController(object):
         actual_time = rospy.get_rostime()
         time_difference = ((actual_time.secs*1000 + actual_time.nsecs/1000000) -(state.stamp.secs*1000 + state.stamp.nsecs/1000000)) #[ms]
         if time_difference > 100 :
-            print("Watchdog: Last Robot State is too old. time_difference {0}[ms]".format(time_difference))
+            rospy.logwarn("Watchdog: Last Robot State is too old. time_difference {0}[ms]".format(time_difference))
             return False
         if self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber] == self.currentlyPublishingSampleIndex:
             self.currentlyPublishingSampleIndex = self.currentlyPublishingSampleIndex -1
             return False
         if self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber] < self.currentlyPublishingSampleIndex:
-            print("SampleCounter is too high. Stop here.")
+            rospy.logwarn("SampleCounter is too high. Stop here.")
             raise SystemError
 
         playback_stiffness = self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber]
@@ -560,7 +576,7 @@ class LabelController(object):
             next_goal.kp = [60,60,60,50,50,50,30,30]
             next_goal.kv = [5,5,5,5,5,5,5,5]
             self.publish_pd_controllergoal(PDgoal8 = next_goal)
-            print("(Slowly) Moving to Initialposition of next Trajectory")
+            rospy.loginfo("(Slowly) Moving to Initialposition of next Trajectory")
             return False
         return True    
 
@@ -593,17 +609,14 @@ class LabelController(object):
             close  --> close Gripper  
         """
         if not isinstance(self.last_robot_state_msg,RobotState8):
-            print("Cannot command Gripper. Robot seems inactive.")    
+            rospy.logwarn("Cannot command Gripper. Robot seems inactive.")    
             return True#skip
 
-        if(not self.is_publishing):
-            print("Deactivate Simulation first.")
-            return False    
         last_robot_state_msg = self.last_robot_state_msg
         actual_time = rospy.get_rostime()
         difference = (1000*(actual_time.secs-last_robot_state_msg.stamp.secs) + (actual_time.nsecs-last_robot_state_msg.stamp.nsecs)/1000000) #[ms] as integer
         if difference > 100 :
-            print("Watchdog: Last Robot State is too old. Difference {0}[ms]".format(difference))
+            rospy.logwarn("Watchdog: Last Robot State is too old. Difference {0}[ms]".format(difference))
             return False
             
             
@@ -631,36 +644,13 @@ class LabelController(object):
                 self.grippermode = "close"
                 msg.position[gripper_dof] = 0 # max_open    
         else:
-            print("Mode not valid.")
+            rospy.logerror("Mode not valid.")
             return False    
-        print("Gripper: {0}".format(self.grippermode))    
-        if self.is_publishing:
-            self.rosPublisherToPdcontroller.publish(msg)
-        #self.rosPublisherToRviz.publish(msg)
+        self.rosPublisherToPdcontroller.publish(msg)
  
         return msg
         
         
-    def enablePublishing(self):
-        """ This Function activates Publishing to the real Robot
-            ROS_TOPIC: /panda/pdcontroller_goal
-            ROS_Message_Type: PDControllerGoal8 
-            queue_size: 3
-        """
-        self.is_publishing = True
-        self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
-        return 'Real_Robot'
-
-    def disablePublishing(self):
-        """ This Function deactivates Publishing to the real Robot and is publishing to Simulation instead.
-        ROS_TOPIC: /panda/pdcontroller_goal
-        ROS_Message_Type: PDControllerGoal8 
-        queue_size: 3
-        """
-        self.is_publishing = False
-        self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
-        return 'Simulation'
-
     def disable_cutplay(self):
         """ diables stopping Play at cuts when replaying the Trajectory """
         self.cut_play_active = False 
@@ -676,42 +666,55 @@ class LabelController(object):
     def central_state_handler(self):
         """ Central for handling the mode in which the PlaybackController currently operates"""
         # do not restart on your own
+#        print(self.PublisherMode, self.isObserving)
+        if self.PublisherMode != self.lastPublisherMode:            
+            print(self.PublisherMode, self.isObserving)
+        self.lastPublisherMode = self.PublisherMode
+
+        if self.PublisherMode == PandaPublisherModeEnum.recording and not self.isObserving:
+                self.PublisherMode = PandaPublisherModeEnum.idle
+        elif self.PublisherMode == PandaPublisherModeEnum.idle and self.isObserving:
+                self.PublisherMode = PandaPublisherModeEnum.recording
+
         if (self.PublisherMode == PandaPublisherModeEnum.wait_for_behavior or 
-            self.PublisherMode == PandaPublisherModeEnum.finished_trajectory or 
+            self.PublisherMode == PandaPublisherModeEnum.idle or 
             self.PublisherMode == PandaPublisherModeEnum.prepare_for_publishing):
               return
 
-        if self.currentlyActiveTrajectoryNumber is None:
-            self.PublisherMode = PandaPublisherModeEnum.finished_trajectory        
+        if self.PublisherMode == PandaPublisherModeEnum.recording:
+             self.start_up_in_progress = False
+             self.publish_pd_controllergoal(self.pdgoal_during_passive_recording, soft_start=False)
+             return
+
+        if self.PublisherMode == PandaPublisherModeEnum.publishSample:   
+                self.publish_pd_controllergoal(Samplecounter = self.currentlyPublishingSampleIndex, soft_start=False) # advance manually through Trajectory -> Publish this sample
+                self.PublisherMode = PandaPublisherModeEnum.idle
+                return False #stop here
+
+        if self.currentlyActiveTrajectoryNumber is None: #everything below requires an active trajectory to work
             return
             
         now = rospy.Time.now()
         if self.PublisherMode == PandaPublisherModeEnum.replay_requested:
             if self.TrajectoryTimeDirection >= 0 and self.currentlyPublishingSampleIndex >= self.currentTrajectoryOutPoint:
-                self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
+                self.PublisherMode = PandaPublisherModeEnum.idle
             elif self.TrajectoryTimeDirection < 0 and self.currentlyPublishingSampleIndex <= self.currentTrajectoryInPoint:
-                self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
+                self.PublisherMode = PandaPublisherModeEnum.idle
             else:
                 self.PublisherMode = PandaPublisherModeEnum.replaying_trajectory # just replay Trajectory
                 self.realTimeOfLastPublication = now
             
-        if not self.is_publishing:
-            if self.PublisherMode == PandaPublisherModeEnum.publishSample:   
-                self.publish_pd_controllergoal(Samplecounter = self.currentlyPublishingSampleIndex) # advance manually through Trajectory -> Publish this sample
-                self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
-                return False #stop here
-
 
             
         if self.currentlyPublishingSampleIndex >= self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber]: 
-            self.PublisherMode = PandaPublisherModeEnum.finished_trajectory # just finish Publishing 
+            self.PublisherMode = PandaPublisherModeEnum.idle # go back to idle
 
 
-        if self.PublisherMode == PandaPublisherModeEnum.replaying_trajectory:
+        elif self.PublisherMode == PandaPublisherModeEnum.replaying_trajectory:
                if self.lastPublishedSampleIndex is None:
                     self.currentlyPublishingSampleIndex = 0
                elif self.lastPublishedSampleIndex >= self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber]:
-                    self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
+                    self.PublisherMode = PandaPublisherModeEnum.idle
                     self.currentlyPublishingSampleIndex = None
                else:
                     #advance in time to the correct sample:
@@ -734,7 +737,6 @@ class LabelController(object):
                         else:
                             z = 0
                         for i in range(self.currentlyPublishingSampleIndex, z-1, -1):
-                            print(t.iloc[i] , relativeTimeofLastPublication,-durationSinceLastPublication)
                             if t.iloc[i] > relativeTimeofLastPublication - durationSinceLastPublication:
                                 self.currentlyPublishingSampleIndex = i
                             else:
@@ -755,36 +757,16 @@ class LabelController(object):
 
             stiffness = self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber]
 
-            if(self.autoreplay == 'True'):
-                self.PublisherMode = PandaPublisherModeEnum.replay_requested
-
             if self.PublisherMode == PandaPublisherModeEnum.replay_requested or self.PublisherMode == PandaPublisherModeEnum.advance_initial_position:
                 if not self.check_command_initial_position():
                     self.PublisherMode = PandaPublisherModeEnum.advance_initial_position
                     return False
 
                 self.PublisherMode = PandaPublisherModeEnum.replaying_trajectory
-                if(self.autoredo_record == True):
-                    self.isObserving = True
-                    self.statusText = "Guiding!"
                 self.speedfactor_ = self.speedfactor # make sure speedfactor_ is not to be changed during replaying_trajectory  
         
-            if self.automovetostart:
-                self.PublisherMode = PandaPublisherModeEnum.replaying_trajectory # move to start and THEN sample again
-                self.TrajectoryTimeDirection = -1
-                self.statusText = "Move to Start of Trajectory."
-
-            elif self.autoreplay:
-                self.PublisherMode = PandaPublisherModeEnum.replay_requested #do not have to reload Samples
-                self.statusText = "Play Trajectory."
-
-            elif self.autoredo_record:
-                #make sure replay is finished
-                self.store_and_prepare_for_republishing()
-                self.kivyinterface.switch_auto_redo_off()
-                self.statusText = "Redo and record Trajectory."
             else:
-                self.PublisherMode = PandaPublisherModeEnum.finished_trajectory
+                self.PublisherMode = PandaPublisherModeEnum.idle
                 self.statusText = "Idle."
         return True
 

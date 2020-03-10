@@ -222,7 +222,7 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
             observation = (observation_untrimmed.iloc[metadata['inpoint']:metadata['outpoint']]).copy(deep=True)
 
             #annotate observations with phase values (maybe learn in the future, or use phasta simulation to generate more accurate profiles)
-            t = observation['t',_np.nan]
+            t = observation['observed', 'time','t']
             duration = t.iloc[-1]-t.iloc[0]
             time_normalized = (t - t[0]) / duration
             if phaseVelocityProfileAssumption == 'constant':

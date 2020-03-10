@@ -6,7 +6,7 @@
 
 <arg name="arm_id" default="robot" />
 <arg name="gripper_present" default="true" /> <!-- Due to ROS limitation, we need to set this extra. Make sure this is the same as in the config yaml -->
-<arg name="for_real" default="false"/>
+
 
 <param name="DemoSessionConfigFileName" value="session.yaml"/>  
 <node name="teaching_app"  pkg="phastapromep" type="teaching_app.py" args="session.yaml" required="true" output="screen" /> 
@@ -14,9 +14,10 @@
 <group ns='robot'>
   <include file="$(find controller_panda_mti)/launch/default.launch">
     <arg name="arm_id" value='$(arg arm_id)' />
+    <arg name="watchdog_do_damping" default="true" />
   </include> 
 
-  <node name="controller2jointstatemsgs" pkg="controller_panda_mti" type="controller2jointstatemsgspublisher.py"  output="screen"/>
+  <node name="controller2jointstatemsgs" pkg="controller_panda_mti" type="controller2jointstatemsgspublisher.py"  output="screen" required="true"/>
   <node name="robot_tf_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
   <node name="expected_tf_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
     <remap from="joint_states" to="joint_states_expected"/>
