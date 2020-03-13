@@ -17,6 +17,7 @@
 @copyright: 2019
 @licence: 2-clause BSD licence
 """
+import traceback
 
 import collections
 import pandas as pd
@@ -130,8 +131,8 @@ class LabelController(object):
             self.metadata = pd.DataFrame([[0,'',0.0,0,0,0,0.0]], columns = ['i','label','playback_stiffness','inpoint','outpoint','samples','duration'])
             self.metadata.drop(0, inplace=True)
             
-        self.minStiffness = 0.05  
-        self.maxStiffness = 1.0
+        self.minStiffness = 0.0  
+        self.maxStiffness = 10.0
         self.stiffnessScaleStep = 0.8
         self.defaultStiffness = 0.2
         
@@ -140,6 +141,8 @@ class LabelController(object):
         self.kp_max= pd.Series([80,70,70,70,60,40,40,30])
         self.kd_max= pd.Series([15,15,15,15,5,5,5,5])
         
+        self.pdcontrollermode = PandaRobotMode(PandaRobotMode.kOther)
+
         self.isStopped = True
         self.speedfactor  = 5.0
         self.speedfactor_ = self.speedfactor # do not change
@@ -152,6 +155,8 @@ class LabelController(object):
         self.statusText = "Status"
         self.timespan = 0
         self._nextNominalPeriod = 1.0/180
+
+        self.request_gui_update = 10
 
         self.isObserving = False
         self.destination_reached = False
@@ -238,7 +243,7 @@ class LabelController(object):
     def setLabelOfTrajectory(self, label, TrajectoryNumber):
         if not label in self.availableLabels and not label in self.specialLabels:
             raise ValueError("Tried to set a label that is not listed in availableLabels")    
-        self.metadata['label'][TrajectoryNumber] = label
+        self.metadata.loc[TrajectoryNumber, 'label'] = label
         self.commitMetaData()
 
 
@@ -285,11 +290,11 @@ class LabelController(object):
                 
         self.currentlyActiveTrajectoryNumber = newentry_number
         self.currentTrajectory = df
-        self.currentlyPublishingSampleIndex =  self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber] -1   #set position for playback to the last row, as this is usually close to where the robot currently is
+        self.currentlyPublishingSampleIndex =  self.metadata.loc[self.currentlyActiveTrajectoryNumber,'samples'] -1   #set position for playback to the last row, as this is usually close to where the robot currently is
         self.observedRobotStatesList = [] # empty Buffer for new data to append
         self.kivyinterface.registerTrajectory(self.currentlyActiveTrajectoryNumber,self.activeLabel, certainty=self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber] )
         self.PublisherMode = PandaPublisherModeEnum.idle
-        self.setKivySliderValuesandButtonforTrajectory(self.currentlyActiveTrajectoryNumber)
+        self.request_gui_update = 5
 
 
     def setRootWidget(self, rootwidget):
@@ -374,7 +379,7 @@ class LabelController(object):
             return
 
         self.PublisherMode = PandaPublisherModeEnum.idle # stop publishing
-        label = self.metadata['label'].iloc[requestedTrajectory]
+        label = self.metadata.loc[requestedTrajectory, 'label']
         self.activeLabel = label
 
         #read in the now active trajectory:
@@ -383,29 +388,31 @@ class LabelController(object):
         self.currentTrajectoryInPoint = row['inpoint']
         self.currentlyPublishingSampleIndex = self.currentTrajectoryInPoint
         self.currentTrajectoryOutPoint = row['outpoint']
-
-        self.setKivySliderValuesandButtonforTrajectory(self.currentlyActiveTrajectoryNumber)
-
+        self.request_gui_update = 5
 
 
+
+    def setStiffnessOfCurrentActiveTrajectory(self, stiffness):
+        if self.currentlyActiveTrajectoryNumber is None:
+            return 0.0
+        stiffness = min(max(stiffness, self.minStiffness), self.maxStiffness)
+        self.metadata.loc[self.currentlyActiveTrajectoryNumber, 'playback_stiffness'] = stiffness
+        self.commitMetaData()
+        return stiffness
 
     def increaseStiffnessOfCurrentActiveTrajectory(self):
         if self.currentlyActiveTrajectoryNumber is None:
             return
         currentStiffness  =self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber]
         proposedStiffness = currentStiffness / self.stiffnessScaleStep
-        if(proposedStiffness < self.maxStiffness):
-            self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber] = proposedStiffness
-            self.commitMetaData()
+        return  self.setStiffnessOfCurrentActiveTrajectory(proposedStiffness)
 
     def decreaseStiffnessOfCurrentActiveTrajectory(self):
         if self.currentlyActiveTrajectoryNumber is None:
             return
         currentStiffness  =self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber]
         proposedStiffness = currentStiffness * self.stiffnessScaleStep
-        if(proposedStiffness > self.minStiffness):
-            self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber] = proposedStiffness
-            self.commitMetaData()
+        return self.setStiffnessOfCurrentActiveTrajectory(proposedStiffness)
 
 
     def getRelativeSliderTimestamps(self,requestedTrajectory): 
@@ -424,20 +431,28 @@ class LabelController(object):
         out_relative = row['outpoint'] * stepsize
         return in_relative, out_relative
 
-    def setKivySliderValuesandButtonforTrajectory(self,TrajectoryNumber):
-        """ Updates ScrollviewButtons and the CutlistSliders in KivyInterface for given TrajectoryNumber. """
+    def setKivySliderValuesandButtonforTrajectory(self):
+        """ Update GUI elements"""
+        TrajectoryNumber = self.currentlyActiveTrajectoryNumber
+        if TrajectoryNumber is None:
+            self.kivyinterface.setTrajectoryCursorParameters(None, None, None) 
+            self.kivyinterface.presetPlaybackImpedanceDisplay(None)
+            return
         rel_start, rel_stop = self.getRelativeSliderTimestamps(TrajectoryNumber)    
-        samplevalue = float(self.currentlyPublishingSampleIndex)/self.metadata['samples'].iloc[TrajectoryNumber]   
-        self.kivyinterface.updateCutlistinScrollview(TrajectoryNumber,rel_start, rel_stop)
-        self.kivyinterface.extern_updateTrajectorySlider(value_=samplevalue,SliderStart=rel_start,SliderEnd=rel_stop)
+        samplevalue = float(self.currentlyPublishingSampleIndex )/ self.metadata.loc[TrajectoryNumber, 'samples']
+        self.kivyinterface.setTrajectoryCursorParameters(rel_start, samplevalue, rel_stop) 
         self.kivyinterface.updateTrajectoryButtonColorAndText(TrajectoryNumber,self.activeLabel)
+        self.kivyinterface.updateCutlistinScrollview(TrajectoryNumber,rel_start, rel_stop)
+        self.kivyinterface.presetPlaybackImpedanceDisplay(self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber])
+
+        print("updated display to: {}, {},{}".format(rel_start, samplevalue, rel_stop))
 
     def setInPointofCurrentTrajectory(self, rel_start):
         if rel_start == None or self.currentTrajectory is None or self.currentlyActiveTrajectoryNumber is None:
             return
         i = int(rel_start * self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber] + 0.5) 
         i = max(0,min(i,self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber]-1))
-        self.metadata['inpoint'].iloc[self.currentlyActiveTrajectoryNumber] = i
+        self.metadata.loc[self.currentlyActiveTrajectoryNumber, 'inpoint'] = i
         self.currentTrajectoryInPoint = i
         
     def setOutPointofCurrentTrajectory(self, rel_end):
@@ -445,7 +460,7 @@ class LabelController(object):
             return
         i = int(rel_end * self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber] + 0.5)
         i = max(0,min(i,self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber]-1))
-        self.metadata['outpoint'].iloc[self.currentlyActiveTrajectoryNumber] = i
+        self.metadata.loc[self.currentlyActiveTrajectoryNumber, 'outpoint'] = i
         self.currentTrajectoryOutPoint = i
         
     def commitMetaData(self):
@@ -470,7 +485,7 @@ class LabelController(object):
 
     def PandaRobotStateCallback(self,msg):
         """ Callback for Robot states to record"""
-        
+        self.pdcontrollermode = PandaRobotMode(msg.mode)
         #assemble all data into a db row. The 't' Column  is filled with nan as it is computed post-recording:
         #Warning!: Check that the row order below matches with the metaDataIndex list!
         if not self.isObserving:
@@ -705,8 +720,7 @@ class LabelController(object):
                 self.realTimeOfLastPublication = now
             
 
-            
-        if self.currentlyPublishingSampleIndex >= self.metadata['samples'].iloc[self.currentlyActiveTrajectoryNumber]: 
+        if self.currentlyPublishingSampleIndex >= self.metadata.loc[self.currentlyActiveTrajectoryNumber,'samples']: 
             self.PublisherMode = PandaPublisherModeEnum.idle # go back to idle
 
 
@@ -746,9 +760,12 @@ class LabelController(object):
                          
                #if the sample changed, publish new sample and remember it:
                if self.lastPublishedSampleIndex != self.currentlyPublishingSampleIndex:
-                   self.realTimeOfLastPublication = now
-                   self.publish_pd_controllergoal(Samplecounter = self.currentlyPublishingSampleIndex)
-                   self.lastPublishedSampleIndex = self.currentlyPublishingSampleIndex
+                    self.realTimeOfLastPublication = now
+                    self.publish_pd_controllergoal(Samplecounter = self.currentlyPublishingSampleIndex)
+                    self.lastPublishedSampleIndex = self.currentlyPublishingSampleIndex
+                    value = self.currentlyPublishingSampleIndex / float(self.metadata.loc[self.currentlyActiveTrajectoryNumber,'samples'])
+                    self.kivyinterface.trajectoryEditorBar.set_value_to_cursor('currentsample',value)
+
 
         if self.PublisherMode == PandaPublisherModeEnum.paused_trajectory:
             self.realTimeOfLastPublication = now #don't advance trajectories during pausing
@@ -768,6 +785,8 @@ class LabelController(object):
             else:
                 self.PublisherMode = PandaPublisherModeEnum.idle
                 self.statusText = "Idle."
+
+
         return True
 
  
@@ -778,6 +797,19 @@ class LabelController(object):
         if rospy.is_shutdown():
             raise SystemExit("App has been terminated!")
         self.central_state_handler()
+
+        text = "{:20s} | Me:{}".format(self.pdcontrollermode.name, self.PublisherMode.name) 
+        self.kivyinterface.statusBar.text = text
+        self.kivyinterface.modePane.setInfo(self.pdcontrollermode, self.PublisherMode.name)
+        print(self.kivyinterface.modePane.background_color)
+        if self.currentlyActiveTrajectoryNumber is not None:
+            self.kivyinterface.enableButtonsManipulatingTrajectories()
+
+        if self.request_gui_update == 0:
+            self.setKivySliderValuesandButtonforTrajectory()
+        if self.request_gui_update >= 0:
+            self.request_gui_update = self.request_gui_update - 1
+
 
     ###################################################
     #             End of Central Handler              #

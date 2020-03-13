@@ -34,7 +34,7 @@ import labelapp
 import rospy
 import os
 import sys
-
+import shutil
 
 class TeachingApp(kivy.app.App):
 
@@ -42,11 +42,23 @@ class TeachingApp(kivy.app.App):
     """ load the configuration, existing labeling data and start ros-interface: """
     kivy.app.App.__init__(self)
     rospy.init_node('teaching_app')
+    ros_data_skeleton_path  = os.path.join(os.path.dirname(__file__), '../ros_data_skeleton')
     os.chdir(os.environ["ROS_DATA"])
     if(len(sys.argv) == 2):
         self.sessionConfigYamlpath = sys.argv[1]
     else:
         self.sessionConfigYamlpath = 'session.yaml'
+    print(ros_data_skeleton_path)
+    
+    for fname in os.listdir(ros_data_skeleton_path):
+        if not os.path.exists(fname):
+            print("does not exist:{}".format(fname))
+            shutil.copy(os.path.join(ros_data_skeleton_path,fname), fname)
+        else:        
+            print("does exist:{}".format(fname))
+    #shutil.copytree(ros_data_skeleton_path, os.environ["ROS_DATA"], symlinks=False, copy_function=copy2, ignore_dangling_symlinks=True, dirs_exist_ok=True)
+    # 
+    # copy2(ros_data_skeleton_path, '.')
 
  def build(self):
      """ initiates interfacing between core elements of labelapp. needed by kivy. """

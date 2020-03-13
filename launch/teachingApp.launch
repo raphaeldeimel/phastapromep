@@ -1,8 +1,6 @@
 <?xml version="1.0" ?>
 
-<launch>
-  <node name="ensurePresenceOfDefaultFiles" pkg="phastapromep" type="initializeDataDir.sh"  cwd='node' output="screen" />
-  
+<launch>  
 
 <arg name="arm_id" default="robot" />
 <arg name="gripper_present" default="true" /> <!-- Due to ROS limitation, we need to set this extra. Make sure this is the same as in the config yaml -->

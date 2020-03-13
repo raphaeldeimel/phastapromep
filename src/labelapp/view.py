@@ -27,13 +27,13 @@ try:
     from kivy.uix.popup import Popup
     from kivy.uix.label import Label
     from kivy.uix.button import Button
+    from kivy.uix.behaviors import ButtonBehavior      
     from kivy.uix.togglebutton import ToggleButton
     from kivy.uix.textinput import TextInput
     from kivy.uix.scrollview import ScrollView
     from kivy.uix.scatter import Scatter
     from kivy.uix.gridlayout import GridLayout
-    from kivy.properties import ListProperty
-    from kivy.properties import StringProperty
+    from kivy.properties import ListProperty, StringProperty, NumericProperty
     from kivy.core.image import Image as CoreImage
     from kivy.uix.image import Image
     from kivy.graphics import Color, Rectangle, Ellipse, Line
@@ -53,7 +53,6 @@ try:
     from kivy.base import runTouchApp
     from kivy.uix.label import Label
     from kivy.config import Config
-
 
 except ImportError:
     print("Please install python-kivy !")
@@ -81,12 +80,6 @@ from shutil import copyfile
 
 from labelapp.controller import PandaPublisherModeEnum, PandaRobotMode
 
-try:
-    from simple_wifileds import msg as led_color
-except ImportError as e:
-    print("if you plan to use external WifiLeds, please install the simple_wifileds package.")
-    print("And also set wifi_leds arg True in launch File.")
-
 
 try:
     from ruamel import yaml   #replaces deprecated pyYAML
@@ -108,18 +101,64 @@ try: # get global path for kivy images. todo -> fixing this
 except:
     print("Warning: No LabelApp-Images inside labelapp_images Folder in phastapromep.")
 
-class KivyRootWidget(RelativeLayout):
+mup_open  = "[size=18][b][color=00ff00]"        #color = green, size = 14, bold
+mup_close = "[/size][/b][/color]"
+Tooltip_Config_List ={
+            'OpenGripper': "Open the Gripper manually. MTI Panda Controller Software has to be running for that.",
+            'Repeat': "Triggers a jump Back to Start and an immediately repeat of the Trajectory.",
+            'Pause': "Pause actual Replay. Key: >>{0}Back space{1}<<".format(mup_open,mup_close),
+            'Play': "Plays actual Trajectory to Panda, but doens't start recording. Key: >>{0}Back space{1}<<".format(mup_open,mup_close),
+            'goBack': "Move arm Back to Beginning of Trajectory. Key: >>{0}Minus |-{1}<<".format(mup_open,mup_close),
+            'JumpBack': "Jump back directly to Start of Trajectory.Key: >>{0}Plus | +{1}<<".format(mup_open,mup_close),
+            'Record': "Start recording Samples from Panda. Key: >>{0}Enter{1}<<".format(mup_open,mup_close),
+            'PlayAndRecord': "Play actual Trajectory to Panda and start with recording immediately. Key: >>{0}CenterPad | 5{1}<< ".format(mup_open,mup_close),
+            'LearnBehavior': "Learn the behavior from all labeled Trajectories.For each Label / Segment there will be generated a specific Promp in ./behavior and useful additional evaluation information in ./illustration inside ROS_Data Directory",
+            'RunBehavior': "Run this after successful generation of Promp-Data inside behavior.It will launch an Simulation of the Promp-Behavior and vizualize the result.",
+            'Quit': "Quit this application.",
+            'SliderStart': "Slider to set the Start of the Trajectory. Everything on the left will be cut out.",
+            'SliderStop': "Slider to set the Stop of the Trajectory. Everything on the right will be cut out.",
+            'previousLabel':"Switch to previous Label in Labellist. Key: >>{0}Arrow Up | 4 {1}<<".format(mup_open,mup_close),
+            'nextLabel':"Switch to next Label in Labellist. Key: >>{0}Arrow Down|6{1}<<".format(mup_open,mup_close),
+            'EnterNewLabel': "Enter a Label Name here. It will be available below.".format(mup_open,mup_close),
+            'discarded': "Mark actual Label as discarded.",
+            'Undo':"Undo last Labelling.",
+            'ActiveTrajectory':"Currently active Trajectory Number",
+            'StatusField':"Status Field with 3 rows.\n1. Controller Status\n2. Recorded Samples\n3. Actual Sample/MaxSample of Trajectory",
+            'RemoveLabel':"Click here to remove the Label from List",
+            'Background':"Click here to switch between backgrounds",
+            'cutlistbtn': "Press this button to hide / update all cuts from Trajectory",
+
+}
+
+
+Builder.load_string("""
+<BoxLayout>:
+    padding: 2
+<Button>:  
+    color: 0.1, 0.3, 0.4  
+
+<BoxLayout>
+    canvas.before:
+        Color:
+            rgba: 0.1, 0.1, 0.1, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+""")  
+
+
+
+class KivyRootWidget(BoxLayout):
 
     def __init__(self, sessionConfigYamlpath, playbackController, **kwargs):
         """ Function executes the complete setup for Kivy-Graphics of LabelApp """
         self.status_canvas_created = False # lock callback until canvas has been created
+        kwargs['orientation'] = 'vertical'
+        kwargs['background_color'] = (0.1,0.1,0.1,1)
         super(KivyRootWidget, self).__init__(**kwargs)        
 
-        #check if PandaLedBarometer is imported
-        if PandaLedBarometer in sys.modules:
-            self.LedBarometer = PandaLedBarometer()
-        else: 
-            self.LedBarometer = None    
+
         # -------------------------------------------- #
         # -------- Load Session Config Data ---------- #
         # -------------------------------------------- #
@@ -132,9 +171,6 @@ class KivyRootWidget(RelativeLayout):
                 raise SystemExit(1)
         self.sessionConfig['data directory'] = os.path.abspath(os.path.expanduser(self.sessionConfig['data directory']))
         Config.set('input', 'mouse', 'mouse,multitouch_on_demand') #remove red Dot's when doing right click
-
-        self.setBackground("grey")
-
 
         self.playbackController = playbackController # store access to the Ros-Publisher for later
         self.labelstrings = self.playbackController.availableLabels
@@ -159,6 +195,23 @@ class KivyRootWidget(RelativeLayout):
 
         self.DisplayUpdateTimer = Clock.schedule_interval(self.updateDisplayedValues, self.InterfaceUpdateIntervall)#10Hz
 
+    def onImpedanceSliderValue(self, instance, value):
+        impedance_proposed = self.playbackController.maxStiffness * value**3 #stiffness 0 to 10
+        impedance_set = self.playbackController.setStiffnessOfCurrentActiveTrajectory(impedance_proposed)
+        self.impedanceDisplayLabel.text = "{:4.2f}".format(impedance_set)
+        self.impedanceDisplayLabel.color = [1.0, 1.0-value, 1.0-value, 1]
+
+    def presetPlaybackImpedanceDisplay(self, impedance):
+        if impedance is None:
+            self.impedanceSlider.disabled= True
+            self.impedanceDisplayLabel.disabled = True
+        else:
+            self.impedanceSlider.disabled = False
+            self.impedanceDisplayLabel.disabled = False
+            value  = float( (impedance / self.playbackController.maxStiffness)**(1./3)) #cast because kivy doesnt handle numpy floats
+            self.impedanceSlider.value = value 
+            self.impedanceDisplayLabel.text = "{:4.2f}".format(impedance)
+            self.impedanceDisplayLabel.color = [1.0, 1.0-value, 1.0-value, 1]
 
     def init_kivy_elements(self):
         """ Initializes and orders all Kivy-Interface-Elements that are visible to the user."""   
@@ -166,33 +219,179 @@ class KivyRootWidget(RelativeLayout):
         # -------------------------------------------- #
         # -------- Setup the KivyGui-Layout ---------- #
         # -------------------------------------------- #
-       
 
-        Interface2= RelativeLayout(size_hint=(0.8,1),pos_hint={'x': 0.1, 'y': 0.04})
-        self.add_widget(Interface2)
+        #general UI structure:
+        rootPane = self
+        mainPane = BoxLayout(orientation='horizontal')
+        statusPane = BoxLayout(orientation='horizontal', size_hint_y=0.05,  background_color=(0,1,0))
+        rootPane.add_widget(mainPane)
+        rootPane.add_widget(statusPane)
 
-        self.Tooltip_Config_List = TooltipConfigListCreatorTool().create_TooltipConfigList()
+        leftPane = BoxLayout(orientation='vertical',background_color=(0,0.3,0.1), size_hint_x=0.4, padding=20)
+        mainPane.add_widget(leftPane)
 
-        layout_helper = RelativeLayout(pos_hint={'x': 0.35, 'y': 0.5},size_hint=(0.4,0.2))
-        ProgressplayerLayout = BoxLayout(orientation='vertical',spacing=10)
-        self.TrajectoryProgressBar = CustomSliderProgressbar(size_hint=(0.8,1),pos_hint={'x': 0.1, 'y': 0.0})
-        ProgressplayerLayout.add_widget(self.TrajectoryProgressBar)
-        ProgressplayerLayout.add_widget(Label(text='',size_hint_y=0.2))     #cheap vertical space
-        actionbar_ = LabelAppRvizPlayer(parent=self,TooltipConfig_List = self.Tooltip_Config_List,background_color=KivyColors.blue_dark,pos_hint_x=-0.1)
-        if actionbar_ != None: #prevents from not successfully loaded Buttons
-            ProgressplayerLayout.add_widget(actionbar_)            
-        layout_helper.add_widget(ProgressplayerLayout)  
-        self.add_widget(layout_helper)
+        middlePane = BoxLayout(orientation='vertical',background_color=(0,0.3,0.2),size_hint_x=0.4, padding=20)
+        mainPane.add_widget(middlePane)
+
+        rightPane= BoxLayout(orientation='vertical',background_color=(0,0.3,0.3), size_hint_x=0.2,padding=20)
+        mainPane.add_widget(rightPane)
+
+        self.Tooltip_Config_List = Tooltip_Config_List
 
 
-        Labelmenu = RelativeLayout(orientation='horizontal',size_hint=(0.5,0.6),pos_hint={'x': 0.2, 'y': 0.04})
-        Interface2.add_widget(Labelmenu)
-        Vieweroptions,Vieweroptions2,self.simulationbtn = ViewerOptionsCreator().create_widgets(parent=self,TooltipConfig_List=self.Tooltip_Config_List)
-        Interface2.add_widget(Vieweroptions)
-        Interface2.add_widget(Vieweroptions2)
+        self.modePane = ModePaneLayout(orientation='horizontal', size_hint_y=0.1)
+        middlePane.add_widget(self.modePane)
 
-        statuslayout = BoxLayout(orientation='horizontal',size_hint=(0.75,0.3),pos_hint={'x': 0.05, 'y': 0.75})
-        Interface2.add_widget(statuslayout)
+
+
+
+        playerPane = BoxLayout(orientation='vertical', padding=2, space=2, size_hint_y=0.2) #to keep controls and editor bar together
+        middlePane.add_widget(playerPane)
+
+        self.trajectoryEditorBar = TrajectoryEditorBar(playback_controller = self.playbackController, height=50)
+        playerPane.add_widget(self.trajectoryEditorBar)
+
+        for name in ('inpoint', 'currentsample', 'outpoint'):
+            self.modePane.add_widget(self.trajectoryEditorBar.currentTrajectoryParameterDisplays[name])
+
+            
+        ##create the player bar:
+        
+        # check if Images are present
+        if not os.path.isfile(global_path_to_kivy_images + 'playbtn.png'): # check for first Image
+            print("Warning - Put images for Action Btns in ROS_DATA/images for having Actionview\n".format())
+            raise SystemExit("Warning - Put images for Player Btns in {} for having Actionview\n".format(global_path_to_kivy_images))
+
+        actionbar_ = BoxLayout(orientation='horizontal', padding=0, space=0)
+
+        # btn = PlayerButton(
+        #     id='JumpBack',
+        #     source=global_path_to_kivy_images+ 'jumpBackbtn.png' ,
+        #     allow_stretch='True',
+        #     on_press=self.jumpBack,
+        # )       
+        # actionbar_.add_widget(btn)        
+        # btn = PlayerButton(
+        #     id='Repeat',
+        #     source=global_path_to_kivy_images+ 'jumpBack_Play_btn.png' ,
+        #     on_press=self.jumpBackAndRepeat,
+        # )       
+        #actionbar_.add_widget(btn)        
+
+        btn = PlayerButton(
+            id='goBack',
+            source=global_path_to_kivy_images+ 'playrevbtn.png' ,
+            on_press=self.togglePlayBackwards,
+        )       
+        actionbar_.add_widget(btn)        
+        btn = PlayerButton(
+            id='Play',
+            source=global_path_to_kivy_images+ 'playbtn.png' ,
+            on_press=self.togglePlay,
+        )       
+        actionbar_.add_widget(btn)      
+        
+        btn = PlayerButton(
+            id='Record',
+            source=global_path_to_kivy_images+ 'recordbtn.png' ,
+            on_press=self.toggleRecording,
+        )       
+        actionbar_.add_widget(btn)      
+        
+        btn = PlayerButton(
+            id='PlayAndRecord',
+            source=global_path_to_kivy_images+ 'play_and_recordbtn.png' ,
+            on_press=self.toggleReplayRecord,
+        )       
+        actionbar_.add_widget(btn)      
+        playerPane.add_widget(actionbar_)  
+
+
+
+        ####Right pane UI elements:
+
+        ###Create the right-side pane:
+
+
+        Vieweroptions = BoxLayout(orientation='vertical', background_color=KivyColors.green)
+
+        Vieweroptions.add_widget(Label(text='Playback\nImpedance', size_hint_y = 0.1, halign='center'))
+        sliderbox_horizontal = BoxLayout(orientation='horizontal')
+        Vieweroptions.add_widget(sliderbox_horizontal)
+        self.impedanceDisplayLabel = Label(text ='0', valign='middle')
+        self.impedanceSlider = Slider(
+            min = 0, 
+            max = 1., 
+            orientation ='vertical', 
+            value_track = True, 
+            value_track_color =[1, 0, 0, 1], 
+            on_value=self.onImpedanceSliderValue,
+        ) 
+        self.impedanceSlider.bind(value=self.onImpedanceSliderValue)
+
+        sliderbox_horizontal.add_widget(Label(text=" "))
+        sliderbox_horizontal.add_widget(self.impedanceSlider)
+        sliderbox_horizontal.add_widget(self.impedanceDisplayLabel)
+
+        
+
+        Vieweroptions2 = BoxLayout(orientation='vertical')
+
+
+        btn = Button(
+                    id='Undo',
+                    text = "Undo",
+                    on_press=self.undo_label,
+        )
+        Vieweroptions2.add_widget(btn)
+
+        openbtn = Button(
+                    id='OpenGripper',
+                    text = "Open/Close Gripper", 
+                    on_press=self.setGripper,
+        )
+        Vieweroptions2.add_widget(openbtn)
+
+        #self.cutlistbtn = Button( # might be needed for resize_scrollview()
+        #    id='cutlistbtn',
+        #    text =  'Show/Hide Crop',
+        #    on_press=self.toggleCutlistInScrollview,
+        #)
+        #Vieweroptions2.add_widget(self.cutlistbtn)
+
+
+        learnBtn = Button(
+                id='LearnBehavior',
+                text = "Learn behavior",
+                on_press=self.generateBehavior,
+        )           
+        Vieweroptions2.add_widget(learnBtn)
+
+
+        self.simulationbtn = Button(
+                    id='RunBehavior',
+                    text = "Run Behavior",
+                    on_press=self.runBehaviorSimulation,                    
+        )
+        Vieweroptions2.add_widget(self.simulationbtn)
+
+
+        quitBtn = Button(
+                    id='Quit',
+                    text = "Quit",
+                    on_press=self.quitApplicationCallback,
+        )
+        Vieweroptions2.add_widget(quitBtn)
+
+
+        self.statusBar = Label(id='statusbar', text="status", halign='left', minimum_size=300)
+        statusPane.add_widget(self.statusBar)
+        statusPane.add_widget(Label(text="Configuration: "+os.getcwd(), halign='right'))
+
+        rightPane.add_widget(Vieweroptions)
+        rightPane.add_widget(Vieweroptions2)
+
+
 
 
         # -------------------------------------------- #
@@ -200,13 +399,9 @@ class KivyRootWidget(RelativeLayout):
         # -------------------------------------------- #
 
 
-        self.innerLabels = BoxLayout(orientation='vertical',size_hint=(0.5,0.6),pos_hint={'x': 0.4, 'y': 0})
-        Labelmenu.add_widget(self.innerLabels)
+        self.innerLabels = BoxLayout(orientation='vertical', size_hint_y = 0.5)
+        middlePane.add_widget(self.innerLabels)
 
-        btnsize=(1,0.5)
-        btnpos={'x': 0, 'y': 0.5}
-
-        self.innerLabels.add_widget(Label(text='',size_hint_y=0.1)) #cheap vertical space
 
         self.StartCursorpos = None 
         self.EndCursorpos = None # Last CursorSample
@@ -220,103 +415,55 @@ class KivyRootWidget(RelativeLayout):
         btnsize=(0.3,0.3)
 
         btnsize=(1,1)
-
-        tooltiptextinput = TooltipTextInput(
-                                            text="Enter New Label",
-                                            pos_hint={'x': 0, 'y': 0}, size_hint = (1,1),
-                                            tooltip_config = self.Tooltip_Config_List['EnterNewLabel']
+        self.list_of_disabled_widgets = []
+        textinput = TextInput(
+            id='EnterNewLabel',
+            text="Enter new label here",
+            on_enter=self.on_enter,
+            multiline=False, 
         )
-        tooltiptextinput.bind(on_text_validate=self.on_enter)
-        self.innerLabels.add_widget(tooltiptextinput)
-
-
-        btnsize=(1,1)         
-        discardedButton = TooltipButton(
-                    text = "discarded",
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = self.Tooltip_Config_List['discarded']
+        textinput.bind(on_text_validate=self.on_enter)
+        self.innerLabels.add_widget(textinput)
+        self.list_of_disabled_widgets.append(textinput)
+        discardedButton = Button(
+                    id='discard',
+                    text = "discard",
+                    size_hint = btnsize,
+                    disabled=True,
+                    on_press=partial(self.setLabel, 'discarded'),
         )
 
-
-        discardedButton.bind(on_press=partial(self.setLabel, 'discarded'))
         self.innerLabels.add_widget(discardedButton)
-
-
-        self.LabelButtons = {}
-         
-        for i, label in enumerate(self.playbackController.availableLabels):
-            btn = TooltipLabelButton(
-                    parent = self,
-                    text = label,
-                    size_hint = (1,1),
-                    pos_hint={'x': 0, 'y': 0},
-                    tooltip_config = TooltipConfig(text="Label Trajectory as: {0}".format(label)),
-                    playbackController=self.playbackController
-            )
-
-            callbackfunc = partial(self.setLabel, label)
-            btn.bind(on_press=callbackfunc)
-            self.innerLabels.add_widget(btn)
-            self.LabelButtons[label] = btn
-
-        btn = TooltipButton(
-                    text = "Undo",
-                    pos_hint={'x': 0.9, 'y': 0.0}, size_hint = (0.3,0.1),
-                    tooltip_config = self.Tooltip_Config_List['Undo']
-        )
+        self.list_of_disabled_widgets.append(discardedButton)
         
-        btn.bind(on_press=self.undo_label)
-        Labelmenu.add_widget(btn)
+        self.labelRows = {}
+        for i, label in enumerate(self.playbackController.availableLabels):
+            self.addLabelButton(label, disabled=True)
 
-
-
-        self.currentTrajectoryNumberWidget = Label(text='1', pos_hint={'x': 0.14, 'y': -0.2})
-        currentTrajectoryNumberWidget_container = TooltipContainer(
-                                tooltip_config = self.Tooltip_Config_List['ActiveTrajectory'] ,
-                                size_hint=(None,None),pos_hint={'x': 0, 'y': 0})
-        currentTrajectoryNumberWidget_container.add_widget(self.currentTrajectoryNumberWidget)
+        self.currentTrajectoryNumberWidget = Label(id='ActiveTrajectory', text='nothing\nselected')
         self.currentTrajectoryNumberWidget.font_size=50
-        statuslayout.add_widget(currentTrajectoryNumberWidget_container)
+        self.modePane.add_widget(self.currentTrajectoryNumberWidget)
     
-        self.container =  TooltipBox(
-                                        tooltip_config = self.Tooltip_Config_List['StatusField'] ,
-                                        size_hint=(1,0.7),pos_hint={'x': -0.2, 'y': -0.2}
-        )
-        statuslayout.add_widget(self.container)
+        self.statusBox = BoxLayout(id='StatusField', orientation='vertical',size_hint=(1,0.7))     
 
         self.status_canvas_created = True # canvas has been created and can be accessed in callback
 
         self.statusfield = Label(text = 'statusfield',font_size=18)
-        self.container.layout_helper.add_widget(self.statusfield)
+        self.statusBox.add_widget(self.statusfield)
 
         self.samplecounter = Label(text = ' (record a trajectory)',font_size=18)
-        self.container.layout_helper.add_widget(self.samplecounter)
+        self.statusBox.add_widget(self.samplecounter)
 
         self.goalstatus = Label(text = '',font_size=18)
-        self.container.layout_helper.add_widget(self.goalstatus)
+        self.statusBox.add_widget(self.goalstatus)
 
-        # ========================= MTI-Logo ================================================#
-
-        try:
-            logolayout = RelativeLayout(size_hint=(0.07,0.4),pos_hint={'x': 0.83, 'y': 0.65})
-            logolayout.add_widget(Image(source=global_path_to_kivy_images+ 'mti_engage_vertical.png',size=logolayout.size_hint,pos=logolayout.pos))
-            self.add_widget(logolayout)
-        except:    
-            print('Logo not found.')    
             
         # ========================= scrollview of LabelList ================================================#
 
-        self.cutlistbtn = TooltipButton( # might be needed for resize_scrollview()
-            size_hint_y = 0.08,
-            background_color = KivyColors.grey_dark,
-            color=KivyColors.green_dark,
-            text =  'Hide / Show Cropping',
-            tooltip_config = TooltipConfig(text="Press this button to hide / update all cuts from Trajectory")
-        )
-        self.cutlistbtn.bind(on_press=self.toggleCutlistInScrollview)
 
 
-        self.TrajectoryButtonsLayout = GridLayout(cols=1, padding=0.01, spacing=0, size_hint=(1, None))
+
+        self.TrajectoryButtonsLayout = GridLayout(cols=1, padding=0.01, spacing=0)
         self.TrajectoryButtonsLayout.bind(minimum_height=self.TrajectoryButtonsLayout.setter('height'))
              
         #store all trajectory buttons in one array for global access
@@ -327,19 +474,16 @@ class KivyRootWidget(RelativeLayout):
             self.registerTrajectory(i,row['label'],row['playback_stiffness'])
 
         #make scrollview containing gridlayout
-        scrollview = ScrollView(do_scroll_x=False, bar_margin=10, bar_pos_y='left', size_hint=(1, 0.9))
+        scrollview = ScrollView(do_scroll_x=False, bar_margin=10, bar_pos_y='left')
         scrollview.add_widget(self.TrajectoryButtonsLayout)
 
         #make Boxlayout containing scroll view
         vbox = BoxLayout(orientation='vertical')
-        vbox.add_widget(self.cutlistbtn)
         vbox.add_widget(Label(text="Recorded Observations:",size_hint_y=0.08))
         vbox.add_widget(scrollview)
+        leftPane.add_widget(vbox)
 
-        #make RelativeLayout containing BoxLayout
-        Interface1 = RelativeLayout(orientation='vertical',size_hint=(0.25,0.9),pos_hint={'x': 0.02, 'y': 0.05})
-        Interface1.add_widget(vbox)
-        self.add_widget(Interface1)
+        #make BoxLayout containing BoxLayout
         Window.bind(on_resize=self.labelapp_resize)
 
 
@@ -351,6 +495,38 @@ class KivyRootWidget(RelativeLayout):
         Clock.schedule_once(self.periodic, self.playbackController.getUpdateTimePeriod())
 
 
+    def displayTooltip(self, id):
+        return
+        global Tooltip_Config_List
+        if id in Tooltip_Config_List:
+            self.statusBar.text  = Tooltip_Config_List[id]
+            print(self.statusBar.text)
+        else:
+            self.statusBar.text  = ""
+            print(self.statusBar.text)
+
+    def on_mouse_pos(self, *args):
+        """ update the statusbar text based on where we hover"""
+
+        #position is given by cursorposition 
+        cursor_posx = args[1][0]
+        cursor_posy = args[1][1]
+        pos = self.to_window(*self.pos)
+
+        mouse_over = True
+        if cursor_posx < pos[0] or cursor_posx > pos[0] + self.size[0]:
+            mouse_over = False
+        if cursor_posy < pos[1]  or cursor_posy > pos[1] + self.size[1]:
+            mouse_over = False
+    
+        global Tooltip_Config_List
+        if mouse_over:
+            root = App.get_running_app().root
+            root.displayTooltip(self.id)
+        
+        return False
+
+
     def addTrajectoryButton(self, label):
         """
         create and append a new trajectory button to the scroll view
@@ -358,14 +534,15 @@ class KivyRootWidget(RelativeLayout):
         """
         
 
-        # ========================= End scrollview of LabelList ================================================#
+
+    def setTrajectoryCursorParameters(self, rel_start, samplevalue, rel_stop):
+        self.trajectoryEditorBar.set_value_to_cursor('inpoint', rel_start)
+        self.trajectoryEditorBar.set_value_to_cursor('outpoint', rel_stop)
+        self.trajectoryEditorBar.set_value_to_cursor('currentsample', samplevalue)
+
 
     def labelapp_resize(self,window=None, width=0, height=0):
         self.resize_scrollview()
-        self.resize_SliderProgressbar()
-
-    def resize_SliderProgressbar(self,dt=0):
-        self.TrajectoryProgressBar.render_widget()    
 
     def resize_scrollview(self,dt=0):
         """ Function that scales Scollview in Kivy Interface according to the window-size (bug fix)."""
@@ -375,8 +552,14 @@ class KivyRootWidget(RelativeLayout):
         else:    
             for i,btn in enumerate(self.trajectoryButtons):
                 self.updateTrajectoryButtonColorAndText(i)
-       
+
+
+    def increaseImpedance(self):
+        self.impedanceSlider.value = min(1.0, self.impedanceSlider.value + 0.1)
  
+    def decreaseImpedance(self):
+        self.impedanceSlider.value = max(0.0, self.impedanceSlider.value - 0.1)
+
     def initkeyboard(self):
         """ Function holds commandmapping, default config of they kivy app and inits the Bluetooth Keyboard""" 
         self.keyboard_lock = False
@@ -390,7 +573,6 @@ class KivyRootWidget(RelativeLayout):
         # Command-Mapping for (Bluetooth) Keyboard
         self.active_key = ""
         default_keyboard_mapping = { 
-                'numpad0':          "publish",
                 'insert':           "publish", #same key but with numlock
 
                 'numpad2':          "next Trajectory",
@@ -398,20 +580,22 @@ class KivyRootWidget(RelativeLayout):
 
                 'numpad8':          "previous Trajectory", 
                 'up':               "previous Trajectory", 
-                
-                'numpad6':          "increase Certainty",
-                'right':            "increase Certainty",
 
-                'numpad4':          "reduce Certainty",
-                'left':             "reduce Certainty",
+                '+':                "increase impedance",
+                '-':                "decrease impedance",
 
+                'numpadadd':        "increase impedance",
+                'numpadsubstract':  "decrease impedance",
 
-                'backspace':        "Play",    
-                'numpadsubstract':  "PlayBackwards",
-                'numpadadd':        "jumpBack",
+                'enter':            "record",
+
+                'space':            "Play",    
+                'backspace':        "PlayBackwards",    
+
+                #keypad-only interface:
+                'numpad0':          "Play",
                 'numpadenter':      "record",
                 'numpad5':          "Play and record",
-
 
                 'numpaddot':        "switch gripper",
                 'delete':           "switch gripper",
@@ -433,10 +617,10 @@ class KivyRootWidget(RelativeLayout):
             "next Trajectory":     self.nxtcallback,
             "previous Trajectory": self.prevcallback,
     
-            "increase Stiffness":  self.playbackController.increaseStiffnessOfCurrentActiveTrajectory,
-            "reduce Stiffness":    self.playbackController.decreaseStiffnessOfCurrentActiveTrajectory,
+            "increase impedance":  self.increaseImpedance,
+            "decrease impedance":    self.decreaseImpedance,
 
-            "Play" :               self.playbackController.toggleReplaying , #request Replay of Trajectory
+            "Play" :               self.togglePlay, #request Replay of Trajectory
             "Play and record" :    self.playbackController.toggleRecordReplay, #request Replay of Trajectory
 
             "PlayBackwards":       self.togglePlayBackwards,
@@ -467,23 +651,53 @@ class KivyRootWidget(RelativeLayout):
         }
 
  
+    def addLabelButton(self, label, disabled=False):
+        row  = BoxLayout(orientation='horizontal')
+        size_hint_y = 0.1
+        size_y = 15
+        button = Button(
+            id='labelbutton_'+label,
+            text=label,
+            size_hint=(1,1),
+            size_y=size_y,
+            on_press=partial(self.setLabel,label),
+            disabled=disabled,
+        )
+        row.add_widget(button)
+        delbutton = Button(
+            id='RemoveLabel',
+            text='x',
+            background_color=KivyColors.red,
+            size_hint=(0.1,1),
+            size_y=size_y,
+            on_press=partial(self.removeLabelAndButton, label),
+        )   
+        row.add_widget(delbutton)
+        self.text = button.text
+        self.innerLabels.add_widget(row)
+        self.list_of_disabled_widgets.append(button)
+        self.labelRows[label] = row
+        self.innerLabels.minimum_height = (len(self.labelRows)+2)*15
+
+
+
+    def removeLabelAndButton(self, label, buttonInstance):
+        self.playbackController.deleteFromAvailableLabels(label)        
+        self.innerLabels.remove_widget(self.labelRows[label])
+        del self.labelRows[label]
+        self.innerLabels.minimum_height = (len(self.labelRows)+2)*15
+   
+
     def on_enter(self,instance):
         """ Callback: Textinput in KivyInterface for naming labels at runtime """
+        print("on_enter")
         label = str(instance.text)
         if label in self.playbackController.availableLabels: #don't add another label buttin if label is already there
             return
-        btn = TooltipLabelButton(
-                parent = self,
-                text = label,
-                size_hint = (1,1),
-                pos_hint={'x': 0, 'y': 0},
-                tooltip_config = TooltipConfig(text="Label Trajectory as: {0}".format(label)),
-                playbackController=self.playbackController
-        )
-        btn.bind(on_press=partial(self.setLabel,label))
-        self.innerLabels.add_widget(btn)
         self.playbackController.addToAvailableLabels(label)
-   
+        self.addLabelButton(label)
+
+
     def _keyboard_closed(self):
         """ Stop Keyboard Watchdog when Kivy is closed """
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
@@ -496,8 +710,6 @@ class KivyRootWidget(RelativeLayout):
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         """ LabelApp-Action when keyboard Button is pressed """
-        self.activate_keyboardSign(keycode[1])
-        Clock.schedule_once(self.deactivate_keyboardSign, 0.5) #2Hz #remove sign from screen after 500ms
 
         if self.keyboard_lock == False:
 
@@ -508,7 +720,7 @@ class KivyRootWidget(RelativeLayout):
             self.active_key = self.keyboard_mapping[key]
 
             if self.active_key != "increase Certainty"  and self.active_key != "reduce Certainty" and self.active_key != "next Trajectory" and self.active_key != "previous Trajectory":
-                self.keyboard_lock = True #lock
+                #self.keyboard_lock = True #lock
                 Clock.schedule_once(self.unlock_keyboard, 0.5)#2Hz #remove lock after 500ms       
 
             
@@ -548,10 +760,17 @@ class KivyRootWidget(RelativeLayout):
 
     def setLabel(self,label, buttonInstance):
         """ assign a  Label to a current trajectory """
+        if self.playbackController.currentlyActiveTrajectoryNumber is None:
+            return
         self.undoStack.append((self.playbackController.currentlyActiveTrajectoryNumber,self.playbackController.activeLabel))
         self.playbackController.setLabelOfCurrentlyActiveTrajectory(label) #update LabelTag for specific trajectory
         self.playbackController.activeLabel = label
         self.updateTrajectoryButtonColorAndText(self.playbackController.currentlyActiveTrajectoryNumber,label)
+
+    
+    def enableButtonsManipulatingTrajectories(self):
+        for widget in self.list_of_disabled_widgets:
+            widget.disabled=False
 
 
     def undo_label(self, instance = 0):
@@ -575,10 +794,8 @@ class KivyRootWidget(RelativeLayout):
         self.playbackController.toggleReplaying(direction=1)
         if self.playbackController.PublisherMode == PandaPublisherModeEnum.replaying_trajectory:
             self.togglereplaybtn.change_image(image_source = global_path_to_kivy_images +"pausebtn.png")
-            self.togglereplaybtn.set_tooltip_config(self.Tooltip_Config_List['Pause'])
         else:
             self.togglereplaybtn.change_image(image_source = global_path_to_kivy_images + "playbtn.png")
-            self.togglereplaybtn.set_tooltip_config(self.Tooltip_Config_List['Play'])
 
 
     def pauseTrajectory(self,instance = 0):
@@ -597,6 +814,12 @@ class KivyRootWidget(RelativeLayout):
         """ Callback from Actionbutton to toggle recording Panda """
         self.playbackController.toggleRecordingPanda()
 
+
+    def togglePlay(self,instance=0,state=0):
+        """
+        Move Panda back step by step
+        """
+        self.playbackController.toggleReplaying(direction=1)
 
 
     def togglePlayBackwards(self,instance=0,state=0):
@@ -637,32 +860,15 @@ class KivyRootWidget(RelativeLayout):
         """ 
         self.playbackController.setGripper(mode="toggle")
 
-        
-        
-    def activate_keyboardSign(self,keySign):
-        """ display actual keyboard  Sign in the Corner of the GUI """
-        if not isinstance(self.keyboard_Sign,BoxLayout):
-            self.keyboard_Sign = BoxLayout(orientation='horizontal',size_hint=(0.2,0.2),pos_hint={'x': 0.87, 'y': 0.88})
-            info = Label(text = keySign ,font_size=14, color=KivyColors.yellow)
-            self.keyboard_Sign.add_widget(info)
-            self.add_widget(self.keyboard_Sign)            
-    
-    def deactivate_keyboardSign(self,instance=0):
-        """ remove actual keyboard from Corner of the GUI """
-        if isinstance(self.keyboard_Sign,BoxLayout):
-            self.remove_widget(self.keyboard_Sign)
-            self.keyboard_Sign = None
-       
-
 
     # we might take less here?
     def generateBehavior(self, instance=0):
         """ Start generating promps and illustration data from labeled Trajectories """
         self.learnGraphPopupWidget = BoxLayout(orientation='vertical')
-        helper = RelativeLayout(orientation='vertical',size_hint=(1,0.5),pos_hint={'x': 0.02, 'y': 0.05})
+        helper = BoxLayout(orientation='vertical')
         
         self.stopprogressCounter = False
-        self.progresscircle = ProgressCounter(pos_hint={'x': 0.85, 'y': 0.4},max=100)
+        self.progresscircle = ProgressCounter(max=100)
         helper.add_widget(self.progresscircle)
         helper.add_widget(Label(text="Generating behavior graph (state graph, ProMPs and state controllers)\nfrom the labeled segments..\n\n(This may take some time)", size_hint_y=0.5))
         self.learnGraphPopupWidget.add_widget(helper)
@@ -769,12 +975,12 @@ class KivyRootWidget(RelativeLayout):
      
         color = colorSwitch.getKivyColor(str(mode))
         if self.status_canvas_created == True:
-            self.container.layout_helper.canvas.before.clear()
-            with self.container.layout_helper.canvas.before:
+            self.statusBox.canvas.before.clear()
+            with self.statusBox.canvas.before:
 
                 Color(color[0],color[1],color[2],color[3]) # green; colors range from 0-1 instead of 0-255
-                Rectangle(size=self.container.layout_helper.size,
-                                    pos=self.container.layout_helper.pos)
+                Rectangle(size=self.statusBox.size,
+                                    pos=self.statusBox.pos)
    
         if currentlyActiveTrajectoryNumber is None:
             self.currentTrajectoryNumberWidget.text = "-"
@@ -786,19 +992,8 @@ class KivyRootWidget(RelativeLayout):
             self.goalstatus.text = ""
         else:
             self.samplecounter.text  = "{0}| {1} | {2}".format(row['inpoint'],currentSample,row['outpoint'])
-            self.goalstatus.text = "Playback Stiffness: {0}".format(row['playback_stiffness'])
-        if row is None or currentSample is None:
-            self.TrajectoryProgressBar.update_value(value=0.0)
-        else:
-            self.TrajectoryProgressBar.update_value(value=float(currentSample)/row['samples'])
+            self.goalstatus.text = "Playback Stiffness: {0:4.2f}".format(row['playback_stiffness'])
         
-        if self.LedBarometer != None:   
-            wifiled = led_color.VisualOutput()
-            wifiled.color = colorSwitch.getString(str(mode))
-            wifiled.duration = 0.0
-            self.LedBarometer.pub.publish(wifiled)
-        
-
 
 
 
@@ -812,45 +1007,6 @@ class KivyRootWidget(RelativeLayout):
             self.cutlist_enabled = False
             for TrajectoryNumber in range(len(self.trajectoryButtons)):
                 self.trajectoryButtons[TrajectoryNumber].hide_status()        
-                self.trajectoryButtons[TrajectoryNumber].width = self.cutlistbtn.width
-
-    def setCursorStart(self,start=0):
-        """ param arg2:  passes relative cursor position to Controller""" 
-        if type(self.UpdateCursorEvent) != None:
-            Clock.unschedule(self.UpdateCursorEvent)     #delete previous Event         
-        self.UpdateCursorEvent = Clock.schedule_once(partial(self.extern_updateTrajectorySlider,SliderStart=start), 0.05) #2Hz
-        self.debouncer = self.debouncer + 1        
-
-    def setCursorEnd(self,end=1):
-        """ param arg2: passes relative cursor position to Controller """
-        if type(self.UpdateCursorEvent) != None:
-            Clock.unschedule(self.UpdateCursorEvent)     #delete previous Event  
-        self.UpdateCursorEvent = Clock.schedule_once(partial(self.extern_updateTrajectorySlider,SliderEnd=end), 0.05) #2Hz
-        self.debouncer = self.debouncer + 1   #command_queue     
-
-    def extern_updateTrajectorySlider(self,dt=0,value_=None,SliderStart=None,SliderEnd=None):
-        """Private Function is called to update PublisherSampleCounter and Slider-START from Kivy Interface
-        @param dt --> needed by timer for debouncing kivycallbacks 
-        """ 
-        value = 0
-        if SliderStart != None:
-            self.StartCursorpos = SliderStart 
-            self.playbackController.setInPointofCurrentTrajectory(self.StartCursorpos)
-            value=SliderStart
-        if SliderEnd != None:
-            self.EndCursorpos = SliderEnd
-            self.playbackController.setOutPointofCurrentTrajectory(self.EndCursorpos)
-            value=SliderEnd
-        if value_ != None:
-            value = value_    
-
-        i = self.playbackController.currentlyActiveTrajectoryNumber
-        self.updateCutlistinScrollview(i,self.StartCursorpos,self.EndCursorpos)
-        self.TrajectoryProgressBar.update_value(value=value, Slider1=self.StartCursorpos,Slider2=self.EndCursorpos)      
-
-#        if self.debouncer < 2:  # less than two callbacks in command_queue
-#            self.playbackController.updateRobotStateOnce()
-        self.debouncer = 0    #count again    
 
 
     def updateCutlistinScrollview(self,TrajectoryNumber,rel_start=None,rel_end=None):
@@ -865,17 +1021,16 @@ class KivyRootWidget(RelativeLayout):
             if rel_start >= 0 and rel_start <= 1 and rel_end >= 0 and rel_end <=1:
                 # if we have valid rel_start and stop stamp, set Status
                 btn = self.trajectoryButtons[TrajectoryNumber]
-                btn.updateSliderStatus(rel_start,rel_end)
+                #btn.updateSliderStatus(rel_start,rel_end)
                 success = True
             else:
                 print("Sliders not valid. rel_start: {0} rel_end: {1}".format(rel_start,rel_end))
                 rel_start=0
                 rel_end=1
                 btn = self.trajectoryButtons[TrajectoryNumber]
-                btn.updateSliderStatus(rel_start,rel_end)    
+                #btn.updateSliderStatus(rel_start,rel_end)    
                 success = True
 
-        self.trajectoryButtons[TrajectoryNumber].width = self.cutlistbtn.width
         return success
 
 
@@ -890,7 +1045,6 @@ class KivyRootWidget(RelativeLayout):
         btn = self.trajectoryButtons[i]
         btn.text = ' ' + str(i).zfill(3) + ': ' + str(round(stiffness,1)) + ' | '+ str(btntext) 
         btn.height = 24
-        btn.width = self.cutlistbtn.width 
         btn.text_size = (btn.width, btn.height)
         self.updateColorOfButton(btn)
         self.updateCutlistinScrollview(i)
@@ -910,15 +1064,13 @@ class KivyRootWidget(RelativeLayout):
             return
 
         # else, create a new button:
-        btn = TooltipButton( 
+        btn = Button( 
+            id ='trajectorybutton',
             text =  '', 
-            tooltip_config = TooltipConfig(text="Recorded Trajectory with Number: {0}".format(str(i).zfill(3))),
             halign='left',
-            text_size=(300, None),
         )
         btn.id = str(i)
         #force btn size at startup
-        btn.size_hint=(None, None)
         btn.bind(on_press=self.setTrajectory)
         self.updateColorOfButton(btn)     
         self.TrajectoryButtonsLayout.add_widget(btn)
@@ -937,7 +1089,7 @@ class KivyRootWidget(RelativeLayout):
                 btn.background_color = KivyColors.grey_dark
                 btn.color = KivyColors.grey
 
-            if 'discarded' in btn.text:
+            if 'discard' in btn.text:
                 btn.background_color = KivyColors.black
                 btn.color = KivyColors.grey_dark
             if int(btn.id) == self.playbackController.currentlyActiveTrajectoryNumber:
@@ -957,48 +1109,6 @@ class KivyRootWidget(RelativeLayout):
         else:
             self.available_background_path = backgroundmap
 
-    def switchBackgroundcallback(self,instance=0,state=0):
-        """ Callback for changing Bakgroundtbn """
-        if type(instance) == TooltipActionButton:
-            self.setBackground(name=instance.text)
-        else:
-            pass
-            #print("Warning - Btn instance is no TooltipActionButton")
-
-    def setBackground(self,name=None,path=None):
-        """ Function for changing the kivy-background.
-            @param: path 
-            If a path is set, a backgroudn app tries to load an image from taht path        
-        
-            @param: name 
-            If is set app tries to select that color from the defaults     
-        
-        
-        """
-
-        #Set the background via Image-Path OR choose a deafult-color
-        if path != None:
-            if os.path.isfile(path): 
-                Window.clearcolor = (0,0,0,1)
-                with self.canvas.before: 
-                    Rectangle(source=path,pos_hint=self.pos,size=(1920,1020)) 
-                    return True
-
-
-        if name != None:
-            if not "available_background_path" in self.__dict__ : 
-                self.create_available_default_backgrounds() #defaults not created yet -> let's create them
-
-            if name in self.backgrounds:
-                Window.clearcolor = (0,0,0,1)
-                with self.canvas.before:
-                    Color(*self.backgrounds[name])
-                    Rectangle(pos_hint=self.pos,size=(1920,1020))
-                    return True
-    
-        with self.canvas.before:
-                Color(0.,0.,0.0,1) #just the default background 
-        return False
 
 
 
@@ -1061,17 +1171,6 @@ class PandaPublisherColorSwitch():
         return switch[str(publisherMode)]
 
 
-class PandaLedBarometer():
-
-    def __init__(self):
-        self.topic = rospy.get_param('visual_output_topic', False)
-        if(self.topic == False):
-            print("Error getting topic for LedBarometer! Set to /led_color")
-            self.topic = "led_color"            
-        self.pub = rospy.Publisher(self.topic, led_color.VisualOutput, queue_size=3)
-        print("Start publishing LED-Colors")
-
-
 class ProgressCounter(ProgressBar):
 
     def __init__(self, **kwargs):
@@ -1111,622 +1210,164 @@ class ProgressCounter(ProgressBar):
         self.updateBar(text)
 
 
+class TrajectoryEditorBar(RelativeLayout):
+    """ creates a progress bar with movable inpoint and outpoint cursors"""
+    def __init__(self,**kwargs):
+        super(TrajectoryEditorBar,self).__init__(**kwargs)
 
-class TooltipConfig(object):
-    """ Subclass storeing basic Configuration of the displayed Tooltip
-        Text: Text to Display
-        Color: Tooltip Color
-    """
-    def __init__(self, text = "Tooltip", color=KivyColors.grey):
-        self.text = text
-        self.color = color
+        self.base_height = 48
+        self.playbackController = kwargs['playback_controller']
+        self.playbackbar_hspace = 10
 
-class Tooltip(Label):
-    """ Tooltip displayed in Root App """
-    def __init__(self,text=None,color=None, **kwargs):
-        super(Label, self).__init__(**kwargs)
         with self.canvas.before:
-            app = App.get_running_app()
-            if app.root == None:
-                return 
-            size_ = np.array(app.root.size)
-            tl = Button(text=text,size=(max(200,0.2*size_[0]),0.2*size_[1]), pos=(0.73*size_[0],0.75*size_[1]),valign="top",halign="left",background_color=color,markup=True)  
-            tl.text_size = tl.size
+            Color(0.2, 0.2, 0.2, 1)  
+            self.bg_rect = Rectangle(width=self.width, height=self.height)
+            Color(0.7, 0.7, 1.0, 1)  
+            self.bg_bar = Rectangle(width=self.width, height=10)
+        self.bind(size=self._update_pos_size_change, pos=self._update_pos_size_change)
 
-class CustomTrajectoryStatus(object):
+        self.dragged_cursor = None
 
-    def hide_status(self):
-        self.canvas.after.clear()
+        image_size = (self.base_height,self.base_height)
 
-    def updateSliderStatus(self,value1,value2,thickness=3,highlight_color=None):
-        with self.canvas.after:
-            x_margin = 5 # small margin at the edges
-            totalwidth = self.size[0] - 2*x_margin
-            value1 = value1*totalwidth
-            value2 = value2*totalwidth
+        self.cursor_images = {'inpoint': 'CursorStart.png', 'outpoint': 'CursorEnd.png', 'currentsample':'CursorCurrent.png'}
+        self.cursor_values = {'inpoint': 0.0, 'outpoint': 1.0, 'currentsample':0.5}
+        self.center_line_offsets = {'inpoint': 10, 'outpoint': -10, 'currentsample':0}
+        
+        self.currentTrajectoryParameterDisplays = {}
+        self.cursors = {}
+        for name in ('inpoint', 'outpoint', 'currentsample'):          
+            self.cursors[name] = Image(
+                source=global_path_to_kivy_images+ self.cursor_images[name],
+                size=(self.base_height,self.base_height),
+                pos=(int(self.width * (self.cursor_values[name]-0.5)),0),
+                )
+            self.add_widget(self.cursors[name])
+            self.currentTrajectoryParameterDisplays[name] = Label(id=name+'_value', text='', bcolor=(0,0,1,1))
 
-            Cutwidth = value2 -value1
-
-            y_edge = 2
-            y_offset = self.pos[1]+self.size[1]-thickness-y_edge
-
-            pos1 = (x_margin,y_offset) 
-            size1 = (value1,thickness)
-
-            pos2 = (value1+x_margin,y_offset) 
-            size2 = (Cutwidth,thickness)
-
-            pos3 = (value2+x_margin,y_offset) 
-            size3 = (totalwidth-value2,thickness)
-            
-            color = KivyColors.grey
-            Color(color[0],color[1],color[2],color[3])
-            Rectangle(pos = pos1,size = size1)
-
-            if highlight_color != None:
-                if isinstance(highlight_color,KivyColors):
-                    color = highlight_color
-            else:
-                color = KivyColors.green
-            Color(color[0],color[1],color[2],color[3])            
-            Rectangle(pos = pos2,size = size2)
-
-            color = KivyColors.grey
-            Color(color[0],color[1],color[2],color[3])
-            Rectangle(pos = pos3,size = size3)
+        for name in self.cursors:
+            self.set_value_to_cursor(name, self.cursor_values[name]) #recompute pixel positions
+        
 
 
+    def on_touch_down(self, event):
+        distance_closest = 10000000
+        self.dragged_cursor = None
+        for name in ('inpoint', 'outpoint'):
+            inc_x =  event.ox - self.cursors[name].x - self.x - self.cursors[name].width//2
+            inc_y =  event.oy - self.cursors[name].y - self.y - self.cursors[name].height//2
 
-class Tooltipaction(object):
+            #print("{} dist:{}, {}".format(name, inc_x, inc_y))
+            delta = self.base_height//2
+            if abs(inc_x) > delta or abs(inc_y) > delta: #not close enough to consider
+                continue
+            if inc_x < distance_closest:                
+                distance_closest = inc_x
+                self.dragged_cursor = name
+
+        return (self.dragged_cursor is not None) #eat event if we use it
+        #print("touching:{}, {}".format(self.dragged_cursor, distance_closest))
+
+    def on_touch_up(self, event):
+        """
+        on release, inform the controller the new in/outpoints:
+        """
+        if self.dragged_cursor == 'inpoint':
+            self.playbackController.setInPointofCurrentTrajectory(self.cursor_values['inpoint'])
+        elif self.dragged_cursor == 'outpoint':
+            self.playbackController.setOutPointofCurrentTrajectory(self.cursor_values['outpoint'])
+        eat_event = (self.dragged_cursor is not None) 
+        self.dragged_cursor = None
+        return eat_event
+    
+    def on_touch_move(self, event):
+        if self.dragged_cursor is None:            
+            return False
+        proposed_x = self.cursors[self.dragged_cursor].x + event.dx
+
+        left_limit, right_limit = self.get_cursor_limits_pixels(self.dragged_cursor)
+        proposed_x = min(max(left_limit, proposed_x), right_limit)
+
+        if self.dragged_cursor == 'inpoint':
+            proposed_x = min(proposed_x, self.cursors['outpoint'].x + self.center_line_offsets['outpoint'] - self.center_line_offsets['inpoint'])
+        if self.dragged_cursor == 'outpoint':
+            proposed_x = max(proposed_x, self.cursors['inpoint'].x  - self.center_line_offsets['outpoint'] + self.center_line_offsets['inpoint'])
+
+        self.cursor_values[self.dragged_cursor] = (proposed_x - left_limit) / (right_limit- left_limit)
+
+        self.cursors[self.dragged_cursor].x = proposed_x
+        self.update_parameter_displays(self.dragged_cursor)        
+        return True
+
+    def get_cursor_limits_pixels(self, name):
+        left_limit = -self.width//2  - self.center_line_offsets[name] + self.playbackbar_hspace
+        right_limit = self.width//2  - self.center_line_offsets[name] - self.playbackbar_hspace
+        return left_limit, right_limit
+
+
+    def set_value_to_cursor(self, name, value):
+        """
+        set a value to a cursor:
+        """
+        if value is None:
+            self.cursors[name].color = (1,1,1,0.1)
+        else:
+            self.cursors[name].color = (1,1,1,1)
+            left_limit, right_limit = self.get_cursor_limits_pixels(name)
+            x = int(0.5 + (right_limit-left_limit) * value) + left_limit
+            self.cursor_values[name] = value
+            self.cursors[name].x = x
+        self.update_parameter_displays(name)
+
+    def update_parameter_displays(self, name):
+        self.currentTrajectoryParameterDisplays[name].text = "{:3.2f}".format(self.cursor_values[name])
+
+    def _update_pos_size_change(self, instance, value):
+        self.bg_rect.size = (instance.size[0], self.base_height)
+        self.bg_rect.pos = (0, (instance.height- self.base_height)//2)
+        self.bg_bar.size = (instance.size[0]-2*self.playbackbar_hspace,10)
+        self.bg_bar.pos = (self.playbackbar_hspace, (instance.height-10)//2)
+        for name in self.cursors:
+            self.set_value_to_cursor(name, self.cursor_values[name]) #recompute pixel positions
+
+
+class PlayerButton(ButtonBehavior, Image):  
+    pass
+
+
+class ModePaneLayout(BoxLayout):
+    background_color = ListProperty([1,1,0.5,1])
+    colormap = {
+        PandaRobotMode.kOther: KivyColors.blue_dark,
+        PandaRobotMode.kIdle: KivyColors.blue,
+        PandaRobotMode.kMove: KivyColors.green,
+        PandaRobotMode.kReflex: KivyColors.red,
+        PandaRobotMode.kGuiding: KivyColors.red,
+        PandaRobotMode.kUserStopped: KivyColors.yellow_dark,
+        PandaRobotMode.kAutomaticErrorRecovery: KivyColors.red_dark,
+    }
 
     def __init__(self, **kwargs):
-        self.tooltip_config = None
-        self.parent_widget = None
-        self.active_tooltip = None
-        Window.bind(mouse_pos=self.on_mouse_pos) 
-
-    def on_mouse_pos(self, *args):
-        if self.parent_widget == None:
-            self.parent_widget = App.get_running_app().root
-        #position is given by cursorposition 
-        cursor_posx = args[1][0]
-        cursor_posy = args[1][1]
-        pos = self.to_window(*self.pos)
-
-        success = True
-        if cursor_posx < pos[0] or cursor_posx > pos[0] + self.size[0]:
-            success = False
-        if cursor_posy < pos[1]  or cursor_posy > pos[1] + self.size[1]:
-            success = False
-   
-        #success = self.collide_point(cursor_posx,cursor_posy) #kivy's onboard feature does for some reason not work ...
-        if success == False:
-            if self.active_tooltip != None: # This entity has an active Tooltip
-                self.close_tooltip() # we just left that area 
-            return 
-
-        if self.active_tooltip == None:
-            if self.tooltip_config == None: #not set yet
-                return False  
-            self.active_tooltip = Tooltip(text=self.tooltip_config.text,color = self.tooltip_config.color,markup = True)
-            self.parent_widget.add_widget(self.active_tooltip)
-        
-
-    def close_tooltip(self, *args): 
-        if self.active_tooltip != None:  
-            self.parent_widget.remove_widget(self.active_tooltip) 
-            self.active_tooltip = None 
-
-class Features(Tooltipaction):
-    def init(self,parent = None,tooltip_config = None, **kwargs):
-        self.set_tooltip_config(tooltip_config)
-        super(Tooltipaction,self).__init__(**kwargs)
-        self.setparent(parent)
-
-    def setparent(self,parent_): 
-        if parent_ == None:
-            app = App.get_running_app()
-            self.parent_widget = app.root
-
-        else:
-            self.parent_widget = parent_
-
-    def set_tooltip_config(self,tooltip_config_=None):    
-        if tooltip_config_ != None: 
-            self.tooltip_config = tooltip_config_  
-        else: 
-            self.tooltip_config = Tooltip(text="Tooltip") # text from Button
+        super(ModePaneLayout, self).__init__(**kwargs)
+        with self.canvas.before:
+            Color(*self.background_color)
+            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(size=self._update_size, pos=self._update_pos)
 
 
-
-class TooltipContainer(RelativeLayout):
-    def __init__(self,parent = None,tooltip_config = None,size_hint=None,pos_hint=None,**kwargs):
-        super(RelativeLayout, self).__init__(**kwargs)
-        self.shape_tooltip_container(parent,tooltip_config,size_hint,pos_hint)
-
-    def shape_tooltip_container(self,parent,tooltip_config,size_hint,pos_hint): #TODO
-        # for having the tooltips
-        tooltip_overlay = TooltipButton(parent=parent,tooltip_config=tooltip_config,size_hint=size_hint,pos_hint=pos_hint)
-        tooltip_overlay.canvas.clear() # remove canvas
-        #for having the status
-        self.add_widget(tooltip_overlay)      
-
-
-class TooltipBox(RelativeLayout):
-    def __init__(self,parent = None,tooltip_config = None,size_hint=None,pos_hint=None,**kwargs):
-        super(RelativeLayout, self).__init__(**kwargs)
-        self.shape_tooltip_container(parent,tooltip_config,size_hint,pos_hint)
-
-    def shape_tooltip_container(self,parent,tooltip_config,size_hint,pos_hint): #TODO
-        # for having the tooltips
-        tooltip_overlay = TooltipButton(parent=parent,tooltip_config=tooltip_config,size_hint=size_hint,pos_hint=pos_hint)
-        tooltip_overlay.canvas.clear() # remove canvas
-
-        #for having the status
-        self.layout_helper = BoxLayout(orientation='vertical',size_hint=size_hint,pos_hint=pos_hint) # just for having the right layout       
-
-        self.add_widget(tooltip_overlay)      
-        self.add_widget(self.layout_helper)
+    def setInfo(self, pdcontrollermode, memode):
+        self.background_color = self.colormap[pdcontrollermode]
+        self.on_color_change(self)
     
-class TooltipTextInput(RelativeLayout):
-    def __init__(self,text="",parent = None,tooltip_config = None,size_hint=None,pos_hint=None,**kwargs):
-        super(RelativeLayout, self).__init__(**kwargs)
-        self.shape_tooltip_container(parent,tooltip_config,size_hint,pos_hint,text)
 
-    def shape_tooltip_container(self,parent,tooltip_config,size_hint,pos_hint,text): #TODO
-        # for having the tooltips #TODOMLKMOMLMLM
-        tooltip_overlay = TooltipButton(text="",parent=parent,tooltip_config=tooltip_config,size_hint=size_hint,pos_hint=pos_hint)
-        tooltip_overlay.canvas.clear() # remove canvas
- 
-        #for having the Textinput
-        self.textinput = TextInput(text=text,multiline=False) # just for having the right layout       
-        self.add_widget(tooltip_overlay)
-        self.add_widget(self.textinput)
+    def on_color_change(self, instance):
+        self.canvas.before.clear()
+        self.canvas.before.add(Color(*self.background_color))
+        self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        self.canvas.before.add(self.bg_rect)
 
-    def bind(self,**args):
-        self.textinput.bind(**args)
+    def _update_pos(self, instance, value):
+        self.bg_rect.pos = instance.pos
 
-class TooltipLabelButton(RelativeLayout,Label,Features):
-
-    def __init__(self,text="",parent = None,tooltip_config = None,size_hint=None,pos_hint=None, playbackController=None, **kwargs):
-        super(RelativeLayout, self).__init__(**kwargs)
-        self.shape_tooltip_container(text,parent,tooltip_config,size_hint,pos_hint)
-        self.playbackController=playbackController
-        self.text=text
-
-    def shape_tooltip_container(self,text,parent,tooltip_config,size_hint,pos_hint): #TODO
-        if parent == None:
-            raise Exception("Error -  Parent not set")
-            return False
-        self.btn = TooltipButton(text=text,parent=parent,tooltip_config=tooltip_config,size_hint=size_hint,pos_hint=pos_hint)
-        remove_option = TooltipButton(text="X",parent=parent,tooltip_config=parent.Tooltip_Config_List['RemoveLabel'],size_hint=(0.1,1),pos_hint=pos_hint,background_color=KivyColors.red)    
-        remove_option.bind(on_press=self.remove_self)
-        self.add_widget(self.btn)
-        self.add_widget(remove_option)
-
-
-    def bind(self,**args):
-        self.btn.bind(**args)
-
-    def remove_self(self,instance=0,state=0):
-        if self.playbackController is not None:
-            self.playbackController.deleteFromAvailableLabels(self.text)
-        self.parent.remove_widget(self)
-
-
-class TooltipSwitch(Switch,Features,CustomTrajectoryStatus):
-
-    def __init__(self,parent = None,tooltip_config = None, **kwargs):
-        super(Switch, self).__init__(**kwargs)
-        self.init(parent,tooltip_config, **kwargs)
-
-
-class TooltipButton(Button,Features,CustomTrajectoryStatus):
-
-    def __init__(self,parent = None,tooltip_config = None, **kwargs):
-        super(Button, self).__init__(**kwargs)
-        self.init(parent,tooltip_config, **kwargs)
-
-class TooltipImageButton(RelativeLayout):
-    """ Button with Custom Tooltip and background Image """ 
-    def __init__(self,parent = None,tooltip_config = None,image_source="", **kwargs):
-        super(RelativeLayout, self).__init__(**kwargs)
-        self.TButton = TooltipButton(parent = parent,tooltip_config=tooltip_config)
-        self.add_widget(self.TButton)
-        if image_source != "":
-            self.Image = Image(source=image_source,size=self.TButton.size,pos=self.TButton.pos,allow_stretch='True')
-            self.add_widget(self.Image)
-    
-    def bind(self,**args):
-        self.TButton.bind(**args)
-
-    def change_image(self,image_source = None):
-        """ Function for changing the image source of this button """
-        if image_source != None:
-            self.Image.source = image_source       
-
-    def set_tooltip_config(self,tooltip_config = None):
-        """ Function for changing the Tooltipconfiguration"""
-        if tooltip_config != None:
-            self.TButton.set_tooltip_config(tooltip_config)
-        else:
-            return False
-
-
-class TooltipToggleButton(ToggleButton,Features):
-    def __init__(self,parent = None,tooltip_config = None, **kwargs):
-        super(ToggleButton, self).__init__(**kwargs)
-        self.init(parent,tooltip_config, **kwargs)
-
-class TooltipSlider(Slider,Features):
-    def __init__(self,parent = None,tooltip_config = None,**kwargs):
-        super(Slider,self).__init__(**kwargs)
-        self.init(parent,tooltip_config, **kwargs)
-
-
-class TooltipActionButton(ActionButton,Features):
-
-    def __init__(self,parent = None,tooltip_config = None, **kwargs):
-        super(Button, self).__init__(**kwargs)
-        self.init(parent,tooltip_config, **kwargs)
-
-class TooltipActionDropDown(ActionDropDown,Features):
-    """ Creates a Tooltip for an ActionDropDown Button from Kivy ActionView"""
-    def __init__(self,parent = None,tooltip_config = None, **kwargs):
-        super(ActionDropDown, self).__init__(**kwargs)
-        self.init(parent,tooltip_config, **kwargs)
-
-
-class CustomSliderProgressbar(RelativeLayout):
-    """ Custom Trajectory Progressbar with Sliderwidget to set the Cutlist Start and End for one Trajectory """
-    def __init__(self,**kwargs):
-        super(RelativeLayout,self).__init__(**kwargs)
-        self.ProgressBar = CustomSliderProgress()
-        self.add_widget(self.ProgressBar)
-
-        image_width = (30,30)
-        pos = (-2*image_width[0],-image_width[1]/2)
-        self.Slider_Start = CustomSlider(id="Slider_Start",pos=pos,image_pos=(0,0),image_size = image_width,x_offset=-image_width[0], on_motion=self.Slider_Start_moved, on_touch_up=self.finalizeSliderChanges)
-        self.add_widget(self.Slider_Start)
-
-        pos = (0,-image_width[1]/2)
-        self.Slider_End = CustomSlider(id="Slider_End",source_=global_path_to_kivy_images+ 'SliderEnd.png',pos=pos,value=1,image_pos=(0,0),image_size = image_width,x_offset=15, on_motion=self.Slider_End_moved, on_touch_up=self.finalizeSliderChanges)
-        self.add_widget(self.Slider_End)
-
-    def update_value(self,value=None,Slider1=None,Slider2=None):
-        Success, Sliderstart, Sliderend = self.ProgressBar.update_value(value=value,Slider1 = Slider1,Slider2=Slider2)
-        if Success:
-            self.Slider_Start.extern_set_value(Sliderstart)   
-            self.Slider_End.extern_set_value(Sliderend)
-
-    def render_widget(self):
-        self.Slider_Start.update_pos()
-        self.Slider_End.update_pos()
-        self.ProgressBar.render_widget()
-
-    def Slider_Start_moved(self,value):
-        try:
-            kivyinterface = App.get_running_app().kivyinterface
-        except:
-            return
-        kivyinterface.setCursorStart(value)
-
-    def Slider_End_moved(self,value):
-        try:
-            kivyinterface = App.get_running_app().kivyinterface
-        except:
-            return    
-        kivyinterface.setCursorEnd(value)
-    
-    def finalizeSliderChanges(self, value):
-        try:
-            pb = App.get_running_app().playbackController
-        except:
-            return    
-        pb.commitMetaData()
-        
-
-class CustomSlider(RelativeLayout):
-    def __init__(self,id = None,source_= None,x_offset=0,image_pos=(0,0),value= 0,image_size = (40,40),on_motion = None,on_touch_up = None,**kwargs):
-        super(RelativeLayout,self).__init__(**kwargs)
-        self.x_offset = 0
-        if id != None:
-                self.x_offset = x_offset
-        if source_ == None:
-            source_ = global_path_to_kivy_images + 'SliderStart.png'
-        self.callback_on_motion = on_motion
-        self.callback_on_touch_up = on_touch_up
-        self.scatter_ = Scatter(size=image_size,do_rotation=False,do_scale=False,do_translation_y=False,auto_bring_to_front=True)
-        self.scatter_.bind(pos=self.on_motion)
-        self.image = Image(source=source_,size=image_size,pos=image_pos) 
-        self.scatter_.add_widget(self.image)
-        self.add_widget(self.scatter_)
-        self.extern_set_value(value)
-
-    def bind_(self,callback):    
-        self.callback_on_motion = callback
-
-    def extern_set_value(self,value=None):
-        if type(value == float):
-            self.value = max(0.0,min(value,1.0)) 
-            self.update_pos()
-
-    def update_pos(self):
-            posx= self.value*self.size[0]-self.x_offset #new position
-            self.scatter_.pos= (posx,self.scatter_.pos[1]) #callback triggered
-
-    def on_motion(self,instance=0,pos_value=0): # etype, motionevent):
-        self.value = max(0,min(1,(pos_value[0]+self.x_offset)/(self.size[0])))
-        if self.callback_on_motion != None:
-            self.callback_on_motion(self.value)
-            
-    def on_touch_up(self,instance=0,pos_value=0): # etype, motionevent):
-        if self.callback_on_touch_up != None:
-            self.callback_on_touch_up(pos_value)
-
-
-class CustomSliderProgress(RelativeLayout):
-    def __init__(self,parent=None,TooltipConfig_List=None,**kwargs):
-        super(RelativeLayout,self).__init__(**kwargs)
-        self.value = -1 # Startup 
-        self.line_width = 15
-        self.background_rendered = False
-        self.SliderStart = 0.0
-        self.SliderEnd = 0.0
-
-        
-    def render_background(self):
-        try:
-            with self.canvas:
-                Color(float(232)/255,float(255)/255,float(229)/255) #beige
-                Line(points=[self.pos[0],self.pos[1],self.pos[0]+self.size[0],self.pos[1]],cap="square",width=self.line_width+2)#alternative
-                if self.background_rendered == False:
-                    self.background_rendered = True
-        except:
-            print("ProgressBarBackground not rendered")
-
-    def render_widget(self):
-        """ Function in case the Progressbar has to be rendered again """
-
-        self.canvas.clear()
-        self.render_background()
-
-        with self.canvas:
-
-            if self.SliderStart < self.SliderEnd:
-                Color(float(140)/255,float(255)/255,float(25)/255) #green 
-                Line(points=[self.pos[0]+self.SliderStart*self.size[0],self.pos[1],self.pos[0]+self.SliderEnd*(self.size[0]-self.line_width),self.pos[1]],cap="square",width=self.line_width) #render the Cutout area
-
-            #Color(float(255)/255,float(50)/255,float(50)/255)#red
-            Color(float(255)/255,float(111)/255,float(25)/255)#orange
-            Line(points=[self.pos[0]+self.SliderStart*self.size[0],self.pos[1],self.pos[0]+(self.value*(self.size[0]-20)),self.pos[1]],cap="round",width=self.line_width*0.8) #renders the progress
-
-            Color(float(0)/255,float(76)/255,float(76)/255) # dark green 
-            Line(points=[self.pos[0],self.pos[1],self.pos[0],self.pos[1]],cap="square",width=self.line_width)#render the edges
-            Line(points=[self.pos[0]+self.size[0],self.pos[1],self.pos[0]+self.size[0],self.pos[1]],cap="square",width=self.line_width)
-        
-        return True,self.SliderStart,self.SliderEnd
-
-
-    def update_value(self,value=None,Slider1=None,Slider2=None):
-            """ value: relative value of progressbar """
-
-            
-            if self.background_rendered == False: #do that once
-                self.render_background()
-          
-
-            if value == self.value:
-                """ don't render if value hasn't changed """
-                return False,0,1
-
-            """ Checking the arguments here """
-            if value != None:
-                value = max(min(1,value),0) #between 0 and 1
-                self.value = value
-
-            if Slider1 != None and Slider1 >=0 and Slider1 <= 1 :
-                self.SliderStart = float(Slider1)
-                
-            if Slider2 != None and Slider2 >=0 and Slider2 <= 1 :
-                self.SliderEnd = float(Slider2)
-     
-            return self.render_widget()
-
-
-
-class LabelAppRvizPlayer(RelativeLayout):
-
-    def __init__(self,parent=None,TooltipConfig_List=None,**kwargs):
-        """ Container Class for LabelAppPlayer with custom images"""    
-        super(RelativeLayout,self).__init__(**kwargs)
-        """ pos_hint_ needed for Inserting the image at correct position """    
-        # check if Images are present
-        if not os.path.isfile(global_path_to_kivy_images + 'playbtn.png'): # check for first Image
-            print("Warning - Put images for Action Btns in ROS_DATA/images for having Actionview\n".format())
-            raise SystemExit("Warning - Put images for Player Btns in {} for having Actionview\n".format(global_path_to_kivy_images))
-
-        if parent == None:
-            raise RuntimeError("Error - No Parent for Callbacks")
-
-        if TooltipConfig_List == None:
-            RuntimeError("Error - Tooltips for RVIZ-Player not set.")
-
-        layout_helper = BoxLayout(orientation = 'horizontal')    
-
-
-
-        #btn = TooltipImageButton(tooltip_config=TooltipConfig_List['previousLabel'], image_source = global_path_to_kivy_images+ 'prevbtn.png' )
-        #btn.bind(on_press=parent.prevcallback)      
-        #layout_helper.add_widget(btn)   
-
-        btn =  TooltipImageButton(tooltip_config=TooltipConfig_List['JumpBack'],image_source = global_path_to_kivy_images+ 'jumpBackbtn.png' )
-        btn.bind(on_press=parent.jumpBack)      
-        layout_helper.add_widget(btn)        
-
-        btn = TooltipImageButton(tooltip_config=TooltipConfig_List['Repeat'],text= '',image_source = global_path_to_kivy_images+ 'jumpBack_Play_btn.png' )
-        btn.bind(on_press=parent.jumpBackAndRepeat) 
-        layout_helper.add_widget(btn)   
-
-        btn =  TooltipImageButton(tooltip_config=TooltipConfig_List['goBack'],text= '',image_source = global_path_to_kivy_images+ 'playrevbtn.png'  )
-        btn.bind(on_press=parent.togglePlayBackwards)  
-        layout_helper.add_widget(btn)
-
-        parent.togglereplaybtn =  TooltipImageButton(tooltip_config=TooltipConfig_List['Play'],text= '',image_source = global_path_to_kivy_images+ 'playbtn.png' )
-        parent.togglereplaybtn.bind(on_press=parent.toggleReplaying)
-        layout_helper.add_widget(parent.togglereplaybtn)
-        
-        btn =  TooltipImageButton(tooltip_config=TooltipConfig_List['Record'],image_source = global_path_to_kivy_images+ 'recordbtn.png' )
-        btn.bind(on_press=parent.toggleRecording)      
-        layout_helper.add_widget(btn)  
-
-        btn =  TooltipImageButton(tooltip_config=TooltipConfig_List['PlayAndRecord'],image_source = global_path_to_kivy_images+ 'play_and_recordbtn.png' )
-        btn.bind(on_press=parent.toggleReplayRecord)      
-        layout_helper.add_widget(btn)  
-
-        #btn = TooltipImageButton(tooltip_config=TooltipConfig_List['nextLabel'],image_source = global_path_to_kivy_images+ 'nextbtn.png')
-        #btn.bind(on_press=parent.nxtcallback)      
-        #layout_helper.add_widget(btn)   
-
-        self.add_widget(layout_helper) 
-
-
-class ViewerOptionsCreator(object):
-
-    def __init__(self):
-        pass
-    # -------------------------------------------- #
-    # -------- viewer config buttons ------------  #
-    # -------------------------------------------- #
-    def create_widgets(self,parent=None,TooltipConfig_List = None):
-
-        if parent == None:
-            print("Error - Creating widgets!")
-            return False
-
-
-        if TooltipConfig_List == None:
-            print("Error - Tooltips for ViewerOptions not set.")    
-            return False
-           
-
-        Vieweroptions = BoxLayout(orientation='vertical',size_hint=(0.1,0.1),pos_hint={'x': 0.93, 'y': 0.6})
-        Vieweroptions2 = BoxLayout(orientation='vertical',size_hint=(0.5,0.4),pos_hint={'x': 0.7, 'y': 0.04})
-
-        btnsize=(0.4,0.3)
-        btnpos={'x': 0.35, 'y': 0}
-        
-        openbtn = TooltipButton(
-                    text = "Toggle Gripper", 
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = TooltipConfig_List['OpenGripper']
-        )
-        openbtn.bind(on_press=parent.setGripper)
-        Vieweroptions2.add_widget(openbtn)
-
-        learnBtn = TooltipButton(
-                parent=parent,
-                text = "Learn behavior",
-                pos_hint=btnpos, size_hint = btnsize,
-                tooltip_config = TooltipConfig_List['LearnBehavior']
-        )
-                    
-        learnBtn.bind(on_press=parent.generateBehavior)
-        Vieweroptions2.add_widget(learnBtn)
-
-
-        simulationbtn = TooltipButton(
-                    text = "Run Behavior",
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = TooltipConfig_List['RunBehavior']
-        )
-
-
-        simulationbtn.bind(on_press=parent.runBehaviorSimulation)
-        Vieweroptions2.add_widget(simulationbtn)
-
-
-        quitBtn = TooltipButton(
-                    text = "Quit",
-                    pos_hint=btnpos, size_hint = btnsize,
-                    tooltip_config = TooltipConfig_List['Quit']
-        )
-
-        quitBtn.bind(on_press=parent.quitApplicationCallback)
-        Vieweroptions2.add_widget(quitBtn)
-
-
-
-        return Vieweroptions,Vieweroptions2, simulationbtn
-
-
-
-
-
-class TooltipConfigListCreatorTool(object):
-
-    def __init__(self):
-        pass
-
-    def create_TooltipConfigList(self,parent=None):
-
-        # --------------------------------------------  #
-        # -------- Tooltip Markup Option------------    #
-        # --------------------------------------------  #
-        mup_open  = "[size=18][b][color=00ff00]"        #color = green, size = 14, bold
-        mup_close = "[/size][/b][/color]"
-        # --------------------------------------------  #
-
-        if parent == None:
-            parent = App.get_running_app()
-
-        TooltipConfig_List = {}
-        TooltipConfig_List['OpenGripper'] = TooltipConfig(text=
-            "Open the Gripper manually. MTI Panda Controller Software has to be running for that.")
-
-        TooltipConfig_List['Repeat'] = TooltipConfig(text= "Triggers a jump Back to Start and an immediately repeat of the Trajectory.".format(mup_open,mup_close))
-
-        TooltipConfig_List['Pause'] = TooltipConfig(text= "Pause actual Replay. Key: >>{0}Back space{1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['Play'] = TooltipConfig(text= "Plays actual Trajectory to Panda, but doens't start recording. Key: >>{0}Back space{1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['goBack'] = TooltipConfig(text= "Move arm Back to Beginning of Trajectory. Key: >>{0}Minus |-{1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['JumpBack'] = TooltipConfig(text= "Jump back directly to Start of Trajectory.Key: >>{0}Plus | +{1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['Record'] = TooltipConfig(text= "Start recording Samples from Panda. Key: >>{0}Enter{1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['PlayAndRecord'] = TooltipConfig(text= "Play actual Trajectory to Panda and start with recording immediately. Key: >>{0}CenterPad | 5{1}<< ".format(mup_open,mup_close))
-
-        TooltipConfig_List['LearnBehavior'] = TooltipConfig(text= "Learn the behavior from all labeled Trajectories.For each Label / Segment there will be generated a specific Promp in ./behavior and useful additional evaluation information in ./illustration inside ROS_Data Directory:{0}".format(parent.sessionConfigYamlpath))
-
-        TooltipConfig_List['RunBehavior'] = TooltipConfig(
-            text="Run this after successful generation of Promp-Data inside behavior.It will launch an Simulation of the Promp-Behavior and vizualize the result."
-        )
-               
-        TooltipConfig_List['Quit'] = TooltipConfig(text= "Quit this application.")
-
-        TooltipConfig_List['SliderStart'] = TooltipConfig(text = "Slider to set the Start of the Trajectory. Everything on the left will be cut out.")
-
-        TooltipConfig_List['SliderStop'] = TooltipConfig(text = "Slider to set the Stop of the Trajectory. Everything on the right will be cut out.") 
-
-        TooltipConfig_List['previousLabel'] = TooltipConfig(text="Switch to previous Label in Labellist. Key: >>{0}Arrow Up | 4 {1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['nextLabel'] = TooltipConfig(text="Switch to next Label in Labellist. Key: >>{0}Arrow Down|6{1}<<".format(mup_open,mup_close))
-
-        TooltipConfig_List['EnterNewLabel'] = TooltipConfig(text="Enter a Label Name here. It will be available below.".format(mup_open,mup_close))
-
-        TooltipConfig_List['discarded'] = TooltipConfig(text= "Mark actual Label as discarded.")
-
-        TooltipConfig_List['Undo'] = TooltipConfig(text="Undo last Labelling.")
-
-        TooltipConfig_List['ActiveTrajectory'] = TooltipConfig(text="Currently active Trajectory Number")
- 
-        TooltipConfig_List['StatusField'] = TooltipConfig(text="Status Field with 3 rows.\n1. Controller Status\n2. Recorded Samples\n3. Actual Sample/MaxSample of Trajectory")
-
-        TooltipConfig_List['RemoveLabel'] = TooltipConfig(text="Click here to remove the Label from List")
-
-        TooltipConfig_List['Background'] = TooltipConfig(text="Click here to switch between backgrounds")
-
-
-        return TooltipConfig_List
+    def _update_size(self, instance, value):
+        self.bg_rect.size = instance.size

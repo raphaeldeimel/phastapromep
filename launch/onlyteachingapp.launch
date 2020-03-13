@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+
+<launch>
+
+<arg name="arm_id" default="robot" />
+<arg name="gripper_present" default="true" /> <!-- Due to ROS limitation, we need to set this extra. Make sure this is the same as in the config yaml -->
+
+
+<param name="DemoSessionConfigFileName" value="session.yaml"/>  
+<node name="teaching_app"  pkg="phastapromep" type="teaching_app.py" args="session.yaml" required="true" output="screen" /> 
+
+
+</launch>
+
+
+

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="30"
+   height="30"
+   viewBox="0 0 7.9374999 7.9374999"
+   version="1.1"
+   id="svg4387"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   sodipodi:docname="CursorEnd.svg"
+   inkscape:export-filename="/home/raphael/ws_promep/src/phastapromep/share/labelapp_images/CursorEnd.png"
+   inkscape:export-xdpi="153.60001"
+   inkscape:export-ydpi="153.60001">
+  <defs
+     id="defs4381" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="17.005408"
+     inkscape:cx="-0.61489074"
+     inkscape:cy="14.807351"
+     inkscape:document-units="px"
+     inkscape:current-layer="g11"
+     showgrid="false"
+     inkscape:window-width="1853"
+     inkscape:window-height="1025"
+     inkscape:window-x="67"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1"
+     inkscape:snap-global="true"
+     inkscape:snap-bbox="true"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     inkscape:pagecheckerboard="true"
+     inkscape:snap-page="true"
+     units="px">
+    <sodipodi:guide
+       position="2.644992,0"
+       orientation="1,0"
+       id="guide13"
+       inkscape:locked="false" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata4384">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-322.7836,-15.380014)">
+    <g
+       id="g11"
+       transform="matrix(1.0512518,0,0,0.86297375,-16.389599,2.0048195)">
+      <g
+         id="g3753"
+         transform="matrix(-0.97141413,0,0,0.73230783,642.80832,7.7745723)"
+         style="stroke:none;stroke-opacity:1;fill:#fffbd8;fill-opacity:1">
+        <path
+           inkscape:connector-curvature="0"
+           style="clip-rule:evenodd;fill-rule:evenodd;stroke-width:0.186388;stroke:none;stroke-opacity:1;fill:#fffbd8;fill-opacity:1"
+           d="m 327.42268,21.874514 c 0,0.162333 -0.10637,0.295283 -0.23623,0.295283 h -0.3611 c -0.12987,0 -0.23623,-0.13295 -0.23623,-0.295283 V 11.791759 c 0,-0.162541 0.10636,-0.295282 0.23623,-0.295282 h 0.3611 c 0.12986,0 0.23623,0.132741 0.23623,0.295282 z"
+           id="path3866" />
+        <path
+           inkscape:connector-curvature="0"
+           id="path3866-3"
+           d="m 326.74941,11.512167 0.25307,0.967673 2.42009,-0.939229 c 0.12713,-0.04934 0.19856,-0.21333 0.15914,-0.364057 l -0.10953,-0.418793 c -0.0394,-0.150739 -0.17555,-0.234163 -0.30269,-0.184823 z"
+           style="clip-rule:evenodd;fill-rule:evenodd;stroke-width:0.186388;stroke:none;stroke-opacity:1;fill:#fffbd8;fill-opacity:1" />
+        <path
+           style="clip-rule:evenodd;fill-rule:evenodd;stroke-width:0.186388;stroke:none;stroke-opacity:1;fill:#fffbd8;fill-opacity:1"
+           d="m 326.74941,22.154653 0.25307,-0.967673 2.42009,0.939229 c 0.12713,0.04934 0.19856,0.21333 0.15914,0.364057 l -0.10953,0.418793 c -0.0394,0.150739 -0.17555,0.234163 -0.30269,0.184823 z"
+           id="path3748"
+           inkscape:connector-curvature="0" />
+      </g>
+    </g>
+  </g>
+</svg>
