@@ -163,10 +163,9 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
     
     """
     jointsList = []
-    os.chdir(os.environ["ROS_DATA"])
     #get the state graph:
     if observationsHDFStore is None: #if no database is given, try to look up its name from the config file: 
-        observationsHDFStore = _pd.HDFStore(config['hdf5 filename'])
+        observationsHDFStore = _pd.HDFStore(config['hdf5_filename'])
     
     #get metadata from database:
     observationsMetadata = observationsHDFStore.get('metadata')
@@ -174,8 +173,8 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
     
     graphconfig = ExtractStateGraph(observationsMetadata)
     print("GraphConfig: {}".format(graphconfig))
-    if 'joint indices list' in demonstrationSessionConfig:
-        jointsList = demonstrationSessionConfig['joint indices list']
+    if 'joint_indices_list' in demonstrationSessionConfig:
+        jointsList = demonstrationSessionConfig['joint_indices_list']
     else:
         jointsList  = None
 
@@ -186,9 +185,8 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
         
     observationsPerLabel =  observationsMetadata['label'].value_counts()
     for label in observationsPerLabel.index:
-        if observationsPerLabel[label] < demonstrationSessionConfig['minimum sample count']:
+        if observationsPerLabel[label] < demonstrationSessionConfig['minimum_sample_count']:
             print("Warning: Transition {0} has only {1} observations!. ProMeP quality may suffer.".format(label,observationsPerLabel[label]))
-    phaseVelocityProfileAssumption=demonstrationSessionConfig['promep learner velocity profile assumption']
     
     primitives=[]
     for label in graphconfig['transition_names']:
@@ -198,8 +196,8 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
             continue #skip
 
         #load/combine parameters for the promep to learn: 
-        learningParams = dict(demonstrationSessionConfig[u'promep learning prior']['defaults'])
-        if label in demonstrationSessionConfig[u'promep learning prior']:
+        learningParams = dict(demonstrationSessionConfig[u'promep_learning_prior']['defaults'])
+        if label in demonstrationSessionConfig[u'promep_learning_prior']:
             learningParams.update(learningParams[label])
         
         observations_indices = observationsMetadata[ observationsMetadata['label'] == label]['i']
@@ -218,6 +216,9 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
             t = observation['observed', 'time','t']
             duration = t.iloc[-1]-t.iloc[0]
             time_normalized = (t - t[0]) / duration
+
+            phaseVelocityProfileAssumption=learningParams['velocity_profile_assumption']
+
             if phaseVelocityProfileAssumption == 'constant':
                 phi = time_normalized
             elif phaseVelocityProfileAssumption == 'beta22':
@@ -230,7 +231,8 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
                 phi = 1.0 - 0.5*_np.cos(time_normalized * _np.pi )
             else:
                 raise ValueError("Unknown phase velocity profile specified")
-            
+            phi = _pd.Series(phi)
+
             #synthesize phase observations and add them to the observation:
             dt = t.diff()
             dphi = phi.diff()
@@ -256,10 +258,6 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
         p = _promep.ProMeP(name=label, index_sizes=index_sizes)
         p.learnFromObservations(observations)
         primitives.append(p)
-
-    if "promep learner use fake torquesList" in demonstrationSessionConfig: #copy values to fake over to the behavior configuration
-        if demonstrationSessionConfig["promep learner use fake torquesList"]: #copy values to fake over to the behavior configuration
-            graphconfig["fake effort"] = demonstrationSessionConfig["fake torque covariances"]
 
     #set the phasta parameters:
     if "phasta_parameters" in demonstrationSessionConfig:
@@ -293,11 +291,11 @@ def createPDControllerParamsFromDemonstration(graphconfig, primitives, sessionco
         'dofs' : count of dofs to control
 
     keywords used in sessionconfig:
-        'controller defaults': dictionary of parameter dictionaries for each state, and default parameters
+        'controller_defaults': dictionary of parameter dictionaries for each state, and default parameters
 
     """
     #compute state controller parameters:
-    defaultControllerParameters = sessionconfig['controller defaults']
+    defaultControllerParameters = sessionconfig['controller_defaults']
 
     stateControllerParams=[]
     tns  = _mechanicalstate.makeTensorNameSpaceForMechanicalStateDistributions()
@@ -322,9 +320,9 @@ def createPDControllerParamsFromDemonstration(graphconfig, primitives, sessionco
                          likelyControllerName = "state {0}".format(p.name[2:])
                      if p.name.startswith('to_'):
                          likelyControllerName = "state {0}".format(p.name[3:])
-                     if 'succeeding controller name hints' in sessionconfig:
-                         if p.name in sessionconfig['succeeding controller name hints']:
-                            likelyControllerName = sessionconfig['succeeding controller name hints'][p.name]
+                     if 'succeeding_controller_name_hints' in sessionconfig:
+                         if p.name in sessionconfig['succeeding_controller_name_hints']:
+                            likelyControllerName = sessionconfig['succeeding_controller_name_hints'][p.name]
             if ij[0] == i:  #is outgoing transition?
                  if likelyControllerName is None:
                      if p.name.startswith('from'):
@@ -336,8 +334,8 @@ def createPDControllerParamsFromDemonstration(graphconfig, primitives, sessionco
         
         #get controller parameters from sessionconfig:
         params = { k : copy.deepcopy(defaultControllerParameters[k]) for k in [u'kp', u'kv', u'expectedTorqueNoise', u'learnFrom'] }
-        if likelyControllerName in sessionconfig['controller defaults']:
-            params.update(sessionconfig['controller defaults'][name])
+        if likelyControllerName in sessionconfig['controller_defaults']:
+            params.update(sessionconfig['controller_defaults'][name])
         params['name'] = likelyControllerName
         params['type'] = 'PDController'
         

@@ -43,20 +43,20 @@ with open(filename) as f:
 
 import pandas
 
-store = pandas.HDFStore(config['hdf5 filename'])
+store = pandas.HDFStore(config['hdf5_filename'])
 
 graphconfig, promps = phastapromep.learnGraphFromDemonstration(config, observationsHDFStore=store)
 
 
 #save all data neeeded to instantiate the learned graph into a single directy
-dataDirectory = os.path.expanduser(config['data directory'])
-DefinitionsDirectory = os.path.join(dataDirectory, config['output directory'])
+dataDirectory = os.path.expanduser(config['data_directory'])
+DefinitionsDirectory = os.path.join(dataDirectory, config['output_directory'])
 
 
 print("Saving learnt graph and movement primitives to {0}".format(os.path.abspath(DefinitionsDirectory)))
 phastapromep.saveGraphDefinitionsToDirectory(graphconfig, promps, DefinitionsDirectory)
 # do some illustrations for checking/publication
-IllustrationsDirectory = os.path.join(dataDirectory,  config['output illustrations directory'])
+IllustrationsDirectory = os.path.join(dataDirectory,  config['output_illustrations_directory'])
 print("Saving illustrations to {0}".format(os.path.abspath(IllustrationsDirectory)))
 phastapromep.illustrateGraph(graphconfig, promps, IllustrationsDirectory)
 

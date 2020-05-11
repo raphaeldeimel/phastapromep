@@ -113,7 +113,7 @@ class LabelController(object):
                 raise SystemExit(1)
 
 
-        self.db_filename = self.sessionConfig['hdf5 filename']
+        self.db_filename = self.sessionConfig['hdf5_filename']
         self.store = pd.HDFStore(self.db_filename)
 
         self.debug = False             
@@ -196,10 +196,10 @@ class LabelController(object):
 
         # listen to for new Trajectories
         self.observedRobotStatesList = []# Buffer to Store one Trajectory at a time(the current one)
-        rospy.Subscriber("robot/currentstate", RobotState8, self.PandaRobotStateCallback)
-        self.dof = len(self.sessionConfig['joint indices list'])
+        rospy.Subscriber("robot/currentstate", RobotState, self.PandaRobotStateCallback)
+        self.dof = len(self.sessionConfig['joint_indices_list'])
 
-        self.sessionConfig['data directory'] = os.path.abspath(os.path.expanduser(self.sessionConfig['data directory']))
+        self.sessionConfig['data_directory'] = os.path.abspath(os.path.expanduser(self.sessionConfig['data_directory']))
 
 
     def getNextObservationId(self):

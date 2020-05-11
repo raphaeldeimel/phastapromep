@@ -1,14 +1,14 @@
-data directory: './'
-hdf5 filename: 'observations.h5'
-topic prefix: '/panda'
-joint indices list: [0,1,2,3,4,5,6,7]    #indices of the joints we want to learn. if omitted, use all joints
+data_directory: './'
+hdf5_filename: 'observations.h5'
+topic_prefix: '/panda'
+joint_indices_list: [0,1,2,3,4,5,6,7]    #indices of the joints we want to learn. if omitted, use all joints
 
 
 output directory: 'behavior/'  #where the behavior (phase-state-machine graph and ProMPs) is saved
 output illustrations directory: 'illustrations/' #where to save figures and illustrations
 
 ##Here you can specify each controller's parameters:
-controller defaults:
+controller_defaults:
     type: PDController
     kp: [20, 20, 20, 20, 10,10,10,20]
     kv: [5, 5, 5, 5, 5,5,5,5]
@@ -20,9 +20,9 @@ controller defaults:
 #          expectedTorqueNoise: 0.01
 
 
-minimum sample count: 4   #Warn if the user provided less than this amound of demonstrations for each transition
+minimum_sample_count: 4   #Warn if the user provided less than this amound of demonstrations for each transition
 
-promp learning prior:  #biases the learning of the promep towards being a pd-controller
+promep_learning_prior:  #biases the learning of the promep towards being a pd-controller
     defaults:
         supports_count: 7  #How many support points should be used for transition trajectories?
         velocity_profile_assumption: 'kumaraswamy1.645,1.800'  # alternatives are constant, beta22
@@ -44,6 +44,6 @@ phasta_parameters:
     epsilon: 1.0e-05
     initial_bias: 1.0e-3
     initial_transition_velocity_exponents: 0
-    initial greediness: 1.0
+    initial_greediness: 1.0
 
 

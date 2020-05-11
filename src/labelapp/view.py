@@ -169,7 +169,7 @@ class KivyRootWidget(BoxLayout):
         except IOError:
                 print("LabelApp: Could not open session configuration from: {0}".format(sessionConfigYamlpath))
                 raise SystemExit(1)
-        self.sessionConfig['data directory'] = os.path.abspath(os.path.expanduser(self.sessionConfig['data directory']))
+        self.sessionConfig['data_directory'] = os.path.abspath(os.path.expanduser(self.sessionConfig['data_directory']))
         Config.set('input', 'mouse', 'mouse,multitouch_on_demand') #remove red Dot's when doing right click
 
         self.playbackController = playbackController # store access to the Ros-Publisher for later
