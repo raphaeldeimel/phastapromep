@@ -31,7 +31,7 @@ import yaml
 
 
 import rospy
-from panda_msgs_mti.msg import MechanicalStateDistribution8TorquePosVel, RobotState8
+from panda_msgs_mti.msg import MechanicalStateDistribution8TorquePosVel, RobotState
 from sensor_msgs.msg import JointState
 import pyqtgraph as _pg
 import pyqtgraph.exporters
@@ -179,6 +179,8 @@ class MStateMonitorNode(object):
         
 
         if self.isWithJointStates and self.lastRobotStateMsg is not None:
+            if self.lastRobotStateMsg.dofs != self.dofs:
+                raise NotImplementedError()
             self.jointstates[:self.dofs,self.iTau,idx] = self.lastRobotStateMsg.tau[:self.dofs]
             self.jointstates[:self.dofs,self.iPos,idx] = self.lastRobotStateMsg.q[:self.dofs]
             self.jointstates[:self.dofs,self.iVel,idx] = self.lastRobotStateMsg.dq[:self.dofs]
@@ -297,7 +299,7 @@ def main(samplerate, duration):
     skipupdates_n  = int(samplerate / 10)
     MStateListener       = rospy.Subscriber("mixer/mstate_distribution", MechanicalStateDistribution8TorquePosVel, monitor.MStateMsgCallback    , queue_size=3)
     if monitor.isWithJointStates:
-        CurrentStateListener = rospy.Subscriber("/panda/currentstate"            ,                               RobotState8, monitor.RobotStateMsgCallback, queue_size=3)
+        CurrentStateListener = rospy.Subscriber("/panda/currentstate"            ,                               RobotState, monitor.RobotStateMsgCallback, queue_size=3)
 
     
     rate = rospy.Rate(samplerate)

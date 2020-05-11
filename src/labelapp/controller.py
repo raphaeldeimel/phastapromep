@@ -34,7 +34,7 @@ from sensor_msgs.msg import JointState
 from threading import Thread
 from panda_msgs_mti.msg import RobotModeMsg
 from panda_msgs_mti.msg import PDControllerGoal8
-from panda_msgs_mti.msg import RobotState8
+from panda_msgs_mti.msg import RobotState
 
 
 try:
@@ -91,8 +91,14 @@ def makeMetaDataIndex():
                 ('commanded', 'velocity')): #names used by ProMeP
         for i in range(8):
             tuples.append( (level1, level2, str(i)) )
+    for i in range(16):
+        tuples.append( ('observed_EE','htransform', str(i)) )
     for i in range(6):
-        tuples.append( ('taskspace' 'force', str(i)) )
+        tuples.append( ('observed_EE','wrench', str(i)) )
+    for i in range(42):
+        tuples.append( ('observed_EE','jacobian', str(i)) )
+    for i in range(42):
+        tuples.append( ('observed_EE','dotjacobian', str(i)) )
     return pd.MultiIndex.from_tuples(tuples, names=('origin', 'id', 'dof'))
 metaDataIndex = makeMetaDataIndex() #create the metadata table index once globally, and reuse it
 
@@ -490,7 +496,7 @@ class LabelController(object):
         #Warning!: Check that the row order below matches with the metaDataIndex list!
         if not self.isObserving:
             return
-        row = [msg.stamp.secs, msg.stamp.nsecs, np.nan] + list(msg.q) + list(msg.dq) + list(msg.ddq) + list(msg.tau) + list(msg.tau_ext) + list(msg.qd) + list(msg.dqd) + list(msg.ee_ft)
+        row = [msg.stamp.secs, msg.stamp.nsecs, np.nan] + list(msg.q) + list(msg.dq) + list(msg.ddq) + list(msg.tau) + list(msg.tau_ext) + list(msg.qd) + list(msg.dqd) + list(msg.ee_htransform_base) + list(msg.ee_wrench_ee) + list(msg.ee_jacobian_ee) + list(msg.ee_dotjacobian_ee)
         self.observedRobotStatesList.append(row)
 
 
@@ -544,7 +550,7 @@ class LabelController(object):
 
     def check_command_initial_position(self):
         """SafetyFeature that is called to check wether the start of Trajectory is reached. If not it will stay in loop and commands soft approach """
-        if not isinstance(self.last_robot_state_msg,RobotState8):
+        if not isinstance(self.last_robot_state_msg,RobotState):
             rospy.logwarn("Robot is not active!")
             return True
         if self.currentlyActiveTrajectoryNumber is None:
@@ -623,7 +629,7 @@ class LabelController(object):
             open   --> open Gripper
             close  --> close Gripper  
         """
-        if not isinstance(self.last_robot_state_msg,RobotState8):
+        if not isinstance(self.last_robot_state_msg,RobotState):
             rospy.logwarn("Cannot command Gripper. Robot seems inactive.")    
             return True#skip
 

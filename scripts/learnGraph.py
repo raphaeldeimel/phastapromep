@@ -26,10 +26,17 @@ HDf5 can be created with teaching_app.py
 
 import os
 import sys
-import yaml
+try:
+    from ruamel.yaml import YAML   #replaces deprecated pyYAML
+    yaml = YAML(typ='safe')
+except ImportError as e:
+    if "ruamel" in e.message:
+        print("\nCould not find ruamel. Please download/install the python-ruamel package!\n”")
+    raise e
 
 import matplotlib
 import phastapromep
+
 
     
 if len(sys.argv) == 1:
@@ -37,12 +44,16 @@ if len(sys.argv) == 1:
 elif len(sys.argv) != 2:
     raise SystemExit("Please provide only one argument!")
 else:
-    filename = sys.argv[1]
+    filename = os.path.basename(sys.argv[1])
+    dirname = os.path.dirname(sys.argv[1])
+    if dirname != '':
+        os.chdir(dirname)
+
 with open(filename) as f:
-    config = yaml.load(f, loader=yaml.SafeLoader)
+    config = yaml.load(f)
 
 import pandas
-
+os.chdir(config['data_directory'])
 store = pandas.HDFStore(config['hdf5_filename'])
 
 graphconfig, promps = phastapromep.learnGraphFromDemonstration(config, observationsHDFStore=store)

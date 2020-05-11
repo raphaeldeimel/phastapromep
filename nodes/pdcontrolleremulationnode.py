@@ -24,7 +24,7 @@ import os
 
 import rospy
 from sensor_msgs.msg import JointState
-from panda_msgs_mti.msg import PDControllerGoal8, RobotState8, RobotEEState
+from panda_msgs_mti.msg import PDControllerGoal8, RobotState
 import phastapromep
 import promp
 import pandadynamicsmodel
@@ -186,7 +186,7 @@ jointMsg.name=jointNameList
 desiredJointPublisher = rospy.Publisher("joint_states", JointState,  queue_size=3)
 desiredControllerGoalListener = rospy.Subscriber("panda/pdcontroller_goal", PDControllerGoal8, ControllerGoalCallback, queue_size=3)
 
-currentStateMsg = RobotState8()
+currentStateMsg = RobotState()
 currentStateMsg.q = [0]*8
 currentStateMsg.dq = [0]*8
 currentStateMsg.ddq = [0]*8
@@ -195,7 +195,10 @@ currentStateMsg.tau_ext = [0]*8
 currentStateMsg.qd = [0]*8
 currentStateMsg.dqd = [0]*8
 currentStateMsg.mode = 0
-currentStatePublisher = rospy.Publisher("/panda/currentstate", RobotState8,  queue_size=3)
+currentStateMsg.dofs = 8
+currentStateMsg.dofs = 8
+currentStateMsg.ee_jacobian_ee = [0] * 42
+currentStatePublisher = rospy.Publisher("/panda/currentstate", RobotState,  queue_size=3)
 
 # Create Publisher for current jacobian
 currentEEStateMsg = RobotEEState()
@@ -269,7 +272,6 @@ while not rospy.is_shutdown():
     currentStateMsg.qd[:] = goal[iPos,:]  
     currentStateMsg.dqd[:] = goal[iVel,:]
     currentStateMsg.mode = 0
-    currentStatePublisher.publish(currentStateMsg)
 
     # Jacobian
     urdfModel.setJointPosition(currentJointState[iPos,:])
@@ -290,29 +292,27 @@ while not rospy.is_shutdown():
     pos_count = 0
     for column in range(jacoKDLBase.shape[1]):
         for row in range(jacoKDLBase.shape[0]):
-            currentEEStateMsg.jacobian_ee[pos_count] = jacoKDLEE[row][column]
-            currentEEStateMsg.jacobian_base[pos_count] = jacoKDLBase[row][column]
+            currentStateMsg.ee_jacobian_ee[pos_count] = jacoKDLEE[row][column]
+            #currentStateMsg.jacobian_base[pos_count] = jacoKDLBase[row][column]
             pos_count += 1
 
     # check if jacobian has right size 6x7
-    if not len(currentEEStateMsg.jacobian_ee) == 42:
+    if not len(currentStateMsg.ee_jacobian_ee) == 42:
         rospy.logerr("Emulated jacobian has size %d, but should have 42.", len(currentEEStateMsg.jacobian_ee))
 
     # convert numpy to column major format list
     pos_count = 0
     for column in range(hTransform.shape[1]):
         for row in range(hTransform.shape[0]):
-            currentEEStateMsg.htransform[pos_count] = hTransform[row][column]
+            currentStateMsg.ee_htransform_base[pos_count] = hTransform[row][column]
             pos_count += 1
 
     # check if hTransform has right size 4x4
-    if not len(currentEEStateMsg.htransform) == 16:
-        rospy.logerr("Emulated hTransform has size %d, but should have 16.", len(currentEEStateMsg.htransform))
+    if not len(currentStateMsg.ee_htransform_base) == 16:
+        rospy.logerr("Emulated hTransform has size %d, but should have 16.", len(currentStateMsg.ee_htransform_base))
 
-    # publish jaco + hTransform
-    currentEEStateMsg.stamp = now
-    currentEEStatePublisher.publish(currentEEStateMsg)
-    
+    currentStatePublisher.publish(currentStateMsg)
+
     
     # for the JointStateMsg, split pos, vel, effort for the gripper dof into two states:
     currentJointStateMsg[:,:dofs-1] =     currentJointState[:,:dofs-1]

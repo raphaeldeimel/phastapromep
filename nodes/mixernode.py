@@ -31,7 +31,7 @@ import pandadynamicsmodel
 
 import rospy
 from sensor_msgs.msg import JointState
-from panda_msgs_mti.msg import PDControllerGoal8, MechanicalStateDistribution8TorquePosVel, RobotState8, RobotEEState
+from panda_msgs_mti.msg import PDControllerGoal8, MechanicalStateDistribution8TorquePosVel, RobotState, RobotEEState
 from visualization_msgs.msg import Marker, InteractiveMarkerFeedback
 import tf as _tf 
 
@@ -117,9 +117,6 @@ class MixerNode(object):
         self.kinematicsModel = pandadynamicsmodel.PandaURDFModel()
         
         self.publishMarkers()
-
-        # Subscribe to Jacobian from Controller
-        self.JacobianHTListener = rospy.Subscriber("/panda/currentEEstate", RobotEEState, self.JacobianCallback, queue_size=3) 
 
         # Subscribe to Task Space Goal Marker
         self.JacobianHTListener = rospy.Subscriber("/task_space_goal_marker/feedback", InteractiveMarkerFeedback, self.desiredTaskSpacePoseCallback, queue_size=3) 
@@ -253,7 +250,7 @@ os.chdir(data_dir)
 mixernode = MixerNode(behavior_dir, doProfiling=False)
 
 rospy.loginfo("msd_mixer: Waiting for a current robot posture on /panda/currentstate..")
-currentrobotPosture = rospy.wait_for_message('/panda/currentstate', RobotState8)
+currentrobotPosture = rospy.wait_for_message('/panda/currentstate', RobotState)
 mixernode.setStartPosition(currentrobotPosture)
 import time
 time.sleep(0.1)
