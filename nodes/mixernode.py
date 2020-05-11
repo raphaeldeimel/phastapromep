@@ -82,7 +82,7 @@ class MixerNode(object):
         msd_generators = _np.array([[None]*self.size_states]*self.size_states)
         t = graphconfig['transition_names']
         for transitionLabel in t: #for all transitions:
-            filename=os.path.join( DefinitionsDirectory, + "{}.promep.h5".format(transitionLabel) )
+            filename=os.path.join( DefinitionsDirectory, "{}.promep.h5".format(transitionLabel) )
             p = promep.ProMeP.makeFromFile(filename)
             msd_generators[[t[transitionLabel][1], t[transitionLabel][0]]] = p
 
