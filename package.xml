@@ -55,6 +55,9 @@
   <exec_depend>dvipng</exec_depend>
   <exec_depend>texlive-latex-extra</exec_depend>
   <exec_depend>texlive-fonts-recommended</exec_depend>
+  
+  <depend>rospy</depend> 
+  <exec_depend>message_runtime</exec_depend> 
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
