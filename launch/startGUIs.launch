@@ -1,6 +1,9 @@
 <?xml version="1.0" ?>
 
 <launch>
+  <arg name="data_dir" default='$(env PWD)'/> <!-- This tells the teaching app where to find/dump data-->
+  <param name="data_dir" value='$(arg data_dir)/behavior/' />
+
   <env name="OPENBLAS_NUM_THREADS" value="1" />   <!--workaround for bug in libopenblas, causes extreme (1000x) sys cpu overhead on numpy matrix inversion-->
   <node name="mstatemonitor" pkg="phastapromep" type="mstatemonitornode.py"  output="screen">
   </node>
@@ -12,6 +15,6 @@
   </node>
   
   <param name="robot_description" command="$(find xacro)/xacro $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />
-  <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(env ROS_DATA)/runBehavior.rviz"/>  
+  <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(arg data_dir)/runBehavior.rviz"/>  
 
 </launch>

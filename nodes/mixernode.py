@@ -241,15 +241,13 @@ class MixerNode(object):
             pstats.Stats(self._profiler, stream=s).sort_stats('cumulative').print_stats()
             print(s.getvalue())
 
-
-try:
-    os.chdir(os.environ["ROS_DATA"])
-except KeyError:
-    ROS_ERROR("Please set ROS_DATA ( e.g. ROS_DATA=${PWD} )")
-    raise SystemExit(1)
     
 rospy.init_node('msd_mixer')
-mixernode = MixerNode(rospy.get_param('DefinitionsDirectory', 'behavior/'), doProfiling=False)
+data_dir = rospy.get_param('data_dir')
+behavior_dir = os.path.join(data_dir, rospy.get_param('behavior_dir', 'behavior/'))
+print (behavior_dir)
+os.chdir(data_dir)
+mixernode = MixerNode(behavior_dir, doProfiling=False)
 
 rospy.loginfo("msd_mixer: Waiting for a current robot posture on /panda/currentstate..")
 currentrobotPosture = rospy.wait_for_message('/panda/currentstate', RobotState8)

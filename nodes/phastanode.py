@@ -33,11 +33,7 @@ from sensor_msgs.msg import JointState
 import std_msgs.msg
 
 
-try:
-    _os.chdir(_os.environ["ROS_DATA"])
-except KeyError:
-    ROS_ERROR("Please set ROS_DATA ( e.g. ROS_DATA=${PWD} )")
-    raise SystemExit(1)
+    return phasta
 
 
 rospy.init_node('phasta', log_level=rospy.INFO)
@@ -46,8 +42,55 @@ publish_hz = 50.0
 n_oversampling = 4
 phasta_dt = 1.0 / (n_oversampling * publish_hz)
 
-DefinitionsDirectory = rospy.get_param('DefinitionsDirectory', 'behavior/')
-phasta, prompmixer  = phastapromep.createPhaseStateMachine(DefinitionsDirectory, createPrompMixer=False)
+_os.chdir(rospy.get_param('data_dir'))
+behavior_dir = rospy.get_param('behavior_dir', 'behavior/')
+
+with open(_os.path.join(behavior_dir, 'phasta.yaml')) as f:
+    graphconfig = yaml.safe_load(f)
+
+#gather all arguments for instantiating phasestatemachine object from the config file:
+kwargs = {'numStates': graphconfig['number_of_states'],
+            'successors': graphconfig['successors'], 
+            'reset' : True
+}
+initialTransitionVelocityExponent = 0
+initialBiasInput = 0.001
+initialPhasesInput = 0.0
+initialVelocityEnslavementGain = 0.0
+initialGreediness = 0.5
+if "phasta_parameters" in graphconfig:
+    for keyword in graphconfig["phasta_parameters"]:
+        if keyword == "initial_bias":
+            initialBiasInput = graphconfig["phasta_parameters"][keyword]
+        elif keyword == "initial_transition_velocity_exponents":
+            initialTransitionVelocityExponent = graphconfig["phasta_parameters"][keyword]
+        elif keyword == "initial phases":
+            initialPhasesInput = graphconfig["phasta_parameters"][keyword]
+        elif keyword == "initial phase enslavement gain":
+            initialVelocityEnslavementGain = graphconfig["phasta_parameters"][keyword]
+        elif keyword == "initial greediness":
+            initialGreediness = graphconfig["phasta_parameters"][keyword]
+        else:
+            kwargs[keyword] = graphconfig["phasta_parameters"][keyword]
+
+phasta = phasestatemachine.Kernel(**kwargs)
+phasta.updateBiases(initialBiasInput)
+phasta.updateTransitionPhaseVelocityExponentInput(initialTransitionVelocityExponent)
+phasta.updatePhasesInput(initialPhasesInput)
+phasta.updateVelocityEnslavementGain(initialVelocityEnslavementGain)
+phasta.updateGreediness(initialGreediness)
+
+
+
+
+
+
+
+
+
+
+
+
 
 phasta.updateDt(phasta_dt)
 

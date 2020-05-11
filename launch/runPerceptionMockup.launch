@@ -1,6 +1,8 @@
 <?xml version="1.0" ?>
 
 <launch>
+  <arg name="data_dir" default='$(env PWD)'/> <!-- This tells the teaching app where to find/dump data-->
+  <param name="data_dir" value='$(arg data_dir)/behavior/' />
 
 <!--<node pkg="tf" type="static_transform_publisher" name="panda2labframe" args="1.5 0.20 0.78  1.22 0 0.0 lab_frame panda_link0 100" />-->
 <!--<node pkg="tf" type="static_transform_publisher" name="poi2panda" args="-0.25 0.55 0.0   3.14 0 0.0 panda_link0 poi 100" /> -->

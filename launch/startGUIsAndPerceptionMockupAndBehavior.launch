@@ -1,6 +1,9 @@
 <?xml version="1.0" ?>
 
 <launch>
+  <arg name="data_dir" default='$(env PWD)'/> <!-- This tells the teaching app where to find/dump data-->
+  <param name="data_dir" value='$(arg data_dir)/behavior/' />
+
   <include file="$(find phastapromep)/launch/startGUIs.launch" />
   <include file="$(find phastapromep)/launch/runPerceptionMockup.launch" />
   <include file="$(find phastapromep)/launch/runBehavior.launch" />

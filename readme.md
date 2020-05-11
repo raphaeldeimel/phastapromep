@@ -3,60 +3,33 @@
 
 In this pacakge you find an example of using the LabelApp to create a graph of motions from demonstrations on the robot. In general, you follow the folowing work flow:
 
-0. Modify roslaunch command to set an environment variable "ROS_DATA" to the current working directory (once for a system)
+Create a directory and go there:
+`mkdir myfirstexperiment && cd myfirstexperiment` 
+Then start there the teaching app from the phastapromp package in this directory:
+`roslaunch phastapromep teachingApp.launch`
+(This will create a number of stub files if they are not present yet)
+Now go and record sequences of motions into a hdf5 database (default name: observations.h5)
 
-0. Create a directory and record sequences of motions into a hdf5-File
-2. Create/edit a session.yaml configuring metaparameters of the learning session
-3. Label segments to indicate which are instances of the same motion
-4. Generate/Learn the behavior as a set of ProMPs, state controllers, and a connectivity graph
-5. Run the behavior using phastanode (executes the graph), prompmixernode (governs the motions) and pdcontrolleremulatornode (emulates a pd-controlled franka arm for visualization)
-
+Within tzeaching app:
+1. Record demonstrations / observations
+2. Label segments to indicate which are instances of the same motion
+3. (Optional) Edit the session.yaml file configuring metaparameters of the learning session
+4. Generate/Learn the behavior as a set of ProMePs, state controllers, and a connectivity graph for the phase-state machine
+    You can either use the "learn behavior" button in the teaching app, or run `rosrun phastapromp learnGraph.py session.yaml`
+5. Run the behavior using phastanode (executes the graph), mixernode (governs the motions) and pdcontrolleremulatornode (emulates a pd-controlled panda arm for visualization)
+    `roslaunch phastapromep runBehavior.launch`
+    To additionally launch monitoring nodes, try:
+    `roslaunch phastapromep startGUIsAndPerceptionMockupAndBehavior.launch`
 
 ## Common Pitfalls
 
 ### pytables vs. numpy compatibility break
 
 numpy > 1.16 requires you to have pytables > 3.5.0. On some systems (specifically, ubuntu 18.04) you may need to upgrade pytables manually: 
-    '''pip install tables>=3.5.*'''
+    '''pip install 
 
-
-## Set ROS_DATA
-
-Add the following line to .bash_aliases:
-
-'''bash
-alias roslaunch='ROS_DATA=${PWD} roslaunch'
-'''
-
-$ROS_DATA is used by the scripts to locate all data. using this alias, you can operate on a session by using roslaunch in the session's directory
 
 ## Record sequences of motion
-
- 
-The LabelApp expects a session.yaml in $ROS_DATA for its configuration.
-
-    mkdir myfirstsession && cd myfirstsession
-    roslaunch phastapromep labelapp.launch
-
-On a computer able to talk to Franka's Panda, start the pdcontroller :
-
-    roslaunch controller_panda_mti test.launch
-
-
-Inside the Labelapp you have the opportunity to record segments via pressing 'b' on the keyboard or via the Bluetooth presenter.
-
-One press starts the recording of a motion segment and another ends it. If everything works as expected this should be indicated in the status field and a new Trajectory field will be created on the right side of the app.
-
-##LabelApp Status-Colors:
-
-replay_requested:           red
-moving_to_start:            green
-replaying_trajectory:       blue
-idle:        grey
-prepare_for_publishing:     black
-advance_initial_position:   red
-
-
 
 Demonstrate as many segments as you like. If you want segments to be executable in sequence, demonstrate the sequence at least once.
 

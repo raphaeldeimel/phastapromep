@@ -4,10 +4,13 @@
 
 <arg name="arm_id" default="robot" />
 <arg name="gripper_present" default="true" /> <!-- Due to ROS limitation, we need to set this extra. Make sure this is the same as in the config yaml -->
+<arg name="data_dir" default='$(env PWD)'/> <!-- This tells the teaching app where to find/dump data-->
+<arg name="behavior_dir" default='behavior' />
 
 
 <param name="DemoSessionConfigFileName" value="session.yaml"/>  
-<node name="teaching_app"  pkg="phastapromep" type="teaching_app.py" args="session.yaml" required="true" output="screen" /> 
+<node name="teaching_app"  pkg="phastapromep" type="teaching_app.py" args="session.yaml" required="true" output="screen" />
+<param name="data_dir" value='$(arg data_dir)'/> <!-- This tells the teaching app where to find/dump data-->
 
 <group ns='robot'>
   <include file="$(find controller_panda_mti)/launch/default.launch">
@@ -27,7 +30,7 @@
 
 </group>
 
-<node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(env ROS_DATA)/labelapp.rviz"/>  
+<node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(arg data_dir)/labelapp.rviz"/>  
 
 
 

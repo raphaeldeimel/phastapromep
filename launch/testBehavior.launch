@@ -9,9 +9,13 @@
   
   <param if="$(arg for_real)" name="panda_hostname" value="panda1"/>
 
+  <arg name="data_dir" default='$(env PWD)'/> <!-- This tells the teaching app where to find/dump data-->
+  <arg name="DefinitionsDirectory" default='behavior/'/> <!-- This tells the teaching app where to find/dump data-->
+  
+  <param name="data_dir" value='$(arg data_dir)/' />
 
-  <param name="/DefinitionsDirectory" value='behavior/' />
-  <rosparam command="load" file="$(env ROS_DATA)/behavior/phasta.yaml" ns="phastapromep" />
+
+  <rosparam command="load" file="$(arg data_dir)/behavior/phasta.yaml" ns="phastapromep" />
   
 
 <group if="$(arg for_real)" >

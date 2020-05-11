@@ -2,6 +2,9 @@
 
 <launch>
 
+  <arg name="data_dir" default='$(env PWD)'/> <!-- This tells the teaching app where to find/dump data-->
+  <param name="data_dir" value='$(arg data_dir)/behavior/' />
+
   <node name="mstatemonitor" pkg="phastapromep" type="mstatemonitornode.py"  output="screen">
       <env name="OPENBLAS_NUM_THREADS" value="1" />
   </node>

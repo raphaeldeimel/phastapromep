@@ -38,6 +38,8 @@ with open(sys.argv[1]) as f:
 
 DefinitionsDirectory = os.path.join(os.path.expanduser(config['data directory']), config['output directory'])
 
-phasta, prompmixer = phastapromep.createPhaseStateMachine(DefinitionsDirectory)
+phasta = phastapromep.createPhaseStateMachine(DefinitionsDirectory)
+
+prompmixer = phastapromep.createMixer(DefinitionsDirectory)
     
 
