@@ -22,8 +22,8 @@ import numpy as _np
 import matplotlib.pylab as _pl
 import os as _os
 
-import phasestatemachine
-import phasestatemachine.msg
+import phastapromep
+import phastapromep.msg
 
 import rospy, tf
 from sensor_msgs.msg import JointState
@@ -162,14 +162,14 @@ def BiasMatrixCallback(data):
     global lastBiasesMsg
     lastBiasesMsg = data
 
-biasListener = rospy.Subscriber("/phasta/biases", phasestatemachine.msg.Biases, BiasMatrixCallback, queue_size=1) 
+biasListener = rospy.Subscriber("/phasta/biases", phastapromep.msg.Biases, BiasMatrixCallback, queue_size=1) 
 
 lastGreedinessesMsg = None
 def GreedinessesCallback(data):
     global lastGreedinessesMsg
     lastGreedinessesMsg = data
 
-greedinessListener = rospy.Subscriber("/phasta/greedinesses", phasestatemachine.msg.Greedinesses, GreedinessesCallback, queue_size=1) 
+greedinessListener = rospy.Subscriber("/phasta/greedinesses", phastapromep.msg.Greedinesses, GreedinessesCallback, queue_size=1) 
 
 
 def SpeedMatrixCallback(data):
@@ -179,29 +179,29 @@ def SpeedMatrixCallback(data):
     Kd = _np.asarray(data.kd).reshape((numStates, numStates))
     phasta.updateTransitionPhaseVelocityExponentInput(Kd)
 
-#speedListener = rospy.Subscriber("/phasta/speedexponentials", phasestatemachine.msg.SpeedExponentials, SpeedMatrixCallback, queue_size=1) 
+#speedListener = rospy.Subscriber("/phasta/speedexponentials", phastapromep.msg.SpeedExponentials, SpeedMatrixCallback, queue_size=1) 
 
 
-phasesActivationsMsg = phasestatemachine.msg.PhasesActivations()
+phasesActivationsMsg = phastapromep.msg.PhasesActivations()
 phasesActivationsMsg.states = phasta.numStates
-PhasesActivationsPublisher= rospy.Publisher("/phasta/phases_activations", phasestatemachine.msg.PhasesActivations, queue_size=3)
+PhasesActivationsPublisher= rospy.Publisher("/phasta/phases_activations", phastapromep.msg.PhasesActivations, queue_size=3)
 
 
-statesMsg = phasestatemachine.msg.StateVector()
+statesMsg = phastapromep.msg.StateVector()
 statesMsg.states = phasta.numStates
-StatePublisher = rospy.Publisher("/phasta/x", phasestatemachine.msg.StateVector, queue_size=3)
+StatePublisher = rospy.Publisher("/phasta/x", phastapromep.msg.StateVector, queue_size=3)
 
-statesMsg = phasestatemachine.msg.StateVector()
+statesMsg = phastapromep.msg.StateVector()
 statesMsg.states = phasta.numStates
-StatePublisher = rospy.Publisher("/phasta/x", phasestatemachine.msg.StateVector, queue_size=3)
+StatePublisher = rospy.Publisher("/phasta/x", phastapromep.msg.StateVector, queue_size=3)
 
 state1DMsg = std_msgs.msg.Float32()
 State1DPublisher = rospy.Publisher("/phasta/state1D", std_msgs.msg.Float32, queue_size=3)
 
-stateConnectivityMsg = phasestatemachine.msg.StateMatrix()
+stateConnectivityMsg = phastapromep.msg.StateMatrix()
 stateConnectivityMsg.states = phasta.numStates
 stateConnectivityMsg.matrix = list(phasta.stateConnectivityAbs.flat)
-stateConnectivityMsgPublisher= rospy.Publisher("/phasta/stateconnectivity", phasestatemachine.msg.StateMatrix, queue_size=3)
+stateConnectivityMsgPublisher= rospy.Publisher("/phasta/stateconnectivity", phastapromep.msg.StateMatrix, queue_size=3)
 
 rate = rospy.Rate(publish_hz)
 startTime = rospy.Time.now()

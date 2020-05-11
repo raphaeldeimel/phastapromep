@@ -807,7 +807,6 @@ class LabelController(object):
         text = "{:20s} | Me:{}".format(self.pdcontrollermode.name, self.PublisherMode.name) 
         self.kivyinterface.statusBar.text = text
         self.kivyinterface.modePane.setInfo(self.pdcontrollermode, self.PublisherMode.name)
-        print(self.kivyinterface.modePane.background_color)
         if self.currentlyActiveTrajectoryNumber is not None:
             self.kivyinterface.enableButtonsManipulatingTrajectories()
 

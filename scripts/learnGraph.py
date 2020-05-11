@@ -56,7 +56,7 @@ import pandas
 os.chdir(config['data_directory'])
 store = pandas.HDFStore(config['hdf5_filename'])
 
-graphconfig, promps = phastapromep.learnGraphFromDemonstration(config, observationsHDFStore=store)
+graphconfig, promeps = phastapromep.learnGraphFromDemonstration(config, observationsHDFStore=store)
 
 
 #save all data neeeded to instantiate the learned graph into a single directy
@@ -65,11 +65,11 @@ DefinitionsDirectory = os.path.join(dataDirectory, config['output_directory'])
 
 
 print("Saving learnt graph and movement primitives to {0}".format(os.path.abspath(DefinitionsDirectory)))
-phastapromep.saveGraphDefinitionsToDirectory(graphconfig, promps, DefinitionsDirectory)
+phastapromep.saveGraphDefinitionsToDirectory(graphconfig, promeps, DefinitionsDirectory)
 # do some illustrations for checking/publication
 IllustrationsDirectory = os.path.join(dataDirectory,  config['output_illustrations_directory'])
 print("Saving illustrations to {0}".format(os.path.abspath(IllustrationsDirectory)))
-phastapromep.illustrateGraph(graphconfig, promps, IllustrationsDirectory)
+phastapromep.illustrateGraph(graphconfig, promeps, IllustrationsDirectory)
 
 
 
