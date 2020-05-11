@@ -22,21 +22,82 @@ import numpy as _np
 import matplotlib.pylab as _pl
 import os as _os
 
-import promp
 import phasestatemachine
 import phasestatemachine.msg
-import phastapromep
 
 import rospy, tf
 from sensor_msgs.msg import JointState
 
 import std_msgs.msg
 
+try:
+    from ruamel import yaml   #replaces deprecated pyYAML
+except ImportError as e:
+    if "ruamel" in e.message:
+        print("\nCould not find ruamel. Please download/install the python-ruamel package!\n”")
+    raise e
+
+
+
+def createPhaseStateMachine(behavior_dir):
+    """
+    from the files in DefinitionsDirectoy, construct a phase-state machine and ProMPMixer
+
+    The directory can be created using saveGraphDefinitionsToDirectory()
+
+    Files needed:
+            phasta.yaml:  configuration of the phase-state machine and the associations to promps
+            <name>.promp.mat: serialized parameters of the ProMPs to use
+
+    returns: (phasta, mixer)
+                phasta: PhaseStateMachine object
+                mixer: ProMPMAtrixMixer object, ready to consume phase and activation matrices from the phasta object
+    """
+    #load the graph configuration and instantiate a phase-state machine
+
+    #load the promp definitions and instantiate a phase-state machine
+    with open(os.path.join(behavior_dir, 'phasta.yaml')) as f:
+        graphconfig = yaml.safe_load(f)
+        
+    kwargs = {'numStates': graphconfig['number_of_states'],
+              'successors': graphconfig['successors'], 
+              'reset' : True
+    }
+
+    initialTransitionVelocityExponent = 0
+    initialBiasInput = 0.001
+    initialPhasesInput = 0.0
+    initialVelocityEnslavementGain = 0.0
+    initialGreediness = 0.5
+    if "phasta_parameters" in graphconfig:
+        for keyword in graphconfig["phasta_parameters"]:
+            if keyword == "initial_bias":
+                initialBiasInput = graphconfig["phasta_parameters"][keyword]
+            elif keyword == "initial_transition_velocity_exponents":
+                initialTransitionVelocityExponent = graphconfig["phasta_parameters"][keyword]
+            elif keyword == "initial phases":
+                initialPhasesInput = graphconfig["phasta_parameters"][keyword]
+            elif keyword == "initial phase enslavement gain":
+                initialVelocityEnslavementGain = graphconfig["phasta_parameters"][keyword]
+            elif keyword == "initial greediness":
+                initialGreediness = graphconfig["phasta_parameters"][keyword]
+            else:
+                kwargs[keyword] = graphconfig["phasta_parameters"][keyword]
+    phasta = phasestatemachine.Kernel(**kwargs)
+    phasta.updateBiases(initialBiasInput)
+    phasta.updateTransitionPhaseVelocityExponentInput(initialTransitionVelocityExponent)
+    phasta.updatePhasesInput(initialPhasesInput)
+    phasta.updateVelocityEnslavementGain(initialVelocityEnslavementGain)
+    phasta.updateGreediness(initialGreediness)
 
     return phasta
 
 
+
 rospy.init_node('phasta', log_level=rospy.INFO)
+
+
+
 
 publish_hz = 50.0
 n_oversampling = 4

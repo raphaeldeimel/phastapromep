@@ -40,13 +40,6 @@ except ImportError as e:
     if "promep" in e.message:
         print("\nCould not find promep. Please download/install the python-promep package!\n”")
     raise e
-try:
-    import phasestatemachine
-except ImportError as e:
-    if "phasestatemachine" in e.message:
-        print("\nCould not find phasestatemachine. Please download/install the python-phasta package!\n")
-    raise e
-
 
 try:
     from ruamel import yaml   #replaces deprecated pyYAML
@@ -230,9 +223,9 @@ def learnGraphFromDemonstration(demonstrationSessionConfig, observationsHDFStore
             elif phaseVelocityProfileAssumption == 'beta22':
                 phi = _betainc(2,2,time_normalized.as_matrix()) # expensive to compute
             elif phaseVelocityProfileAssumption == 'kumaraswamy1.400,1.455':
-                phi = promep._kumaraswamy.cdf(1.400,1.455,time_normalized.as_matrix()) #cheap approximation of beta(2,2)
+                phi = _promep._kumaraswamy.cdf(1.400,1.455,time_normalized.as_matrix()) #cheap approximation of beta(2,2)
             elif phaseVelocityProfileAssumption == 'kumaraswamy1.645,1.800':
-                phi = promep._kumaraswamy.cdf(1.645,1.800,time_normalized.as_matrix()) #closer to phase-state-machine's usual phase profile
+                phi = _promep._kumaraswamy.cdf(1.645,1.800,time_normalized.as_matrix()) #closer to phase-state-machine's usual phase profile
             elif phaseVelocityProfileAssumption == 'sine': #sinusoidal phase velocity
                 phi = 1.0 - 0.5*_np.cos(time_normalized * _np.pi )
             else:
@@ -308,7 +301,7 @@ def createPDControllerParamsFromDemonstration(graphconfig, primitives, sessionco
 
     stateControllerParams=[]
     tns  = _mechanicalstate.makeTensorNameSpaceForMechanicalStateDistributions()
-    mixer = promep.Mixer(tns) #used to blend ends/starts of Primtives into a state controller
+    mixer = _mechanicalstate.Mixer(tns) #used to blend ends/starts of Primtives into a state controller
     msd_generators_list = primitives
     for i in range(graphconfig['number_of_states']):
 
@@ -439,57 +432,4 @@ def illustrateGraph(graphconfig, promps, IllustrationsDirectory):
         _pl.close('all')
 
 
-def createPhaseStateMachine(DefinitionsDirectory, mstateDescription=None, createMixer=True, createPhaseStateMachine=True):
-    """
-    from the files in DefinitionsDirectoy, construct a phase-state machine and ProMPMixer
-
-    The directory can be created using saveGraphDefinitionsToDirectory()
-
-    Files needed:
-            phasta.yaml:  configuration of the phase-state machine and the associations to promps
-            <name>.promp.mat: serialized parameters of the ProMPs to use
-
-    returns: (phasta, mixer)
-                phasta: PhaseStateMachine object
-                mixer: ProMPMAtrixMixer object, ready to consume phase and activation matrices from the phasta object
-    """
-    #load the graph configuration and instantiate a phase-state machine
-
-    #load the promp definitions and instantiate a phase-state machine
-    with open(os.path.join(DefinitionsDirectory, 'phasta.yaml')) as f:
-        graphconfig = yaml.safe_load(f)
-        
-    kwargs = {'numStates': graphconfig['number_of_states'],
-              'successors': graphconfig['successors'], 
-              'reset' : True
-    }
-    if createPhaseStateMachine:
-        initialTransitionVelocityExponent = 0
-        initialBiasInput = 0.001
-        initialPhasesInput = 0.0
-        initialVelocityEnslavementGain = 0.0
-        initialGreediness = 0.5
-        if "phasta_parameters" in graphconfig:
-            for keyword in graphconfig["phasta_parameters"]:
-                if keyword == "initial_bias":
-                    initialBiasInput = graphconfig["phasta_parameters"][keyword]
-                elif keyword == "initial_transition_velocity_exponents":
-                    initialTransitionVelocityExponent = graphconfig["phasta_parameters"][keyword]
-                elif keyword == "initial phases":
-                    initialPhasesInput = graphconfig["phasta_parameters"][keyword]
-                elif keyword == "initial phase enslavement gain":
-                    initialVelocityEnslavementGain = graphconfig["phasta_parameters"][keyword]
-                elif keyword == "initial greediness":
-                    initialGreediness = graphconfig["phasta_parameters"][keyword]
-                else:
-                    kwargs[keyword] = graphconfig["phasta_parameters"][keyword]
-        phasta = phasestatemachine.Kernel(**kwargs)
-        phasta.updateBiases(initialBiasInput)
-        phasta.updateTransitionPhaseVelocityExponentInput(initialTransitionVelocityExponent)
-        phasta.updatePhasesInput(initialPhasesInput)
-        phasta.updateVelocityEnslavementGain(initialVelocityEnslavementGain)
-        phasta.updateGreediness(initialGreediness)
-
-    else:
-        phasta=None
 

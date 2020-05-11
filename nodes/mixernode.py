@@ -23,9 +23,9 @@ import os
 from operator import itemgetter
 
 import promep
+import mechanicalstate
 import phasestatemachine
 import phasestatemachine.msg
-import phastapromep
 import pandadynamicsmodel
 
 
@@ -35,7 +35,12 @@ from panda_msgs_mti.msg import PDControllerGoal8, MechanicalStateDistribution8To
 from visualization_msgs.msg import Marker, InteractiveMarkerFeedback
 import tf as _tf 
 
-from promp._tensorfucntions import asList, makeCovarianceTensorUncorrelated #need to get rid of it
+try:
+    from ruamel import yaml   #replaces deprecated pyYAML
+except ImportError as e:
+    if "ruamel" in e.message:
+        print("\nCould not find ruamel. Please download/install the python-ruamel package!\n”")
+    raise e
 
 
 class MixerNode(object):
@@ -64,14 +69,12 @@ class MixerNode(object):
 
         self.integration_timestep = 1.0 / self.updateFrequency
 
-        self.integration_substeps
-
         self.DefinitionsDirectory = DefinitionsDirectory
 
         #make a tensor namespace that hold the right index definitions:
         self.tns = mechanicalstate.makeTensorNameSpaceForMechanicalStateDistributions(r=self.msd_size_realms, g=self.msd_size_derivatives, d=self.msd_size_dofs)
 
-        self.mixer = promep.Mixer(self.tns, max_active_inputs=self.max_active_inputs)
+        self.mixer = mechanicalstate.Mixer(self.tns, max_active_inputs=self.max_active_inputs)
         self.last_msd = self.mixer.msd_mixed
 
         #load the promp definitions and instantiate a phase-state machine
@@ -203,7 +206,7 @@ class MixerNode(object):
         now =  rospy.Time.now()
 
         #compute the expected current state distribution by integration from the last timestep using the (expected) system dynamics:
-        self.timeintegrator.integrate(self.last_msd, self.integration_timestep, self.integration_substeps)
+        self.timeintegrator.integrate(self.last_msd, self.integration_timestep)
         
         #TODO: query self.kinematicsModel for an Yref,Xref,T map to EE
         task_spaces = {}
