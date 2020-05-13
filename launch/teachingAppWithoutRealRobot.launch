@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+
+<launch>  
+
+<include file="$(dirname)/teachingApp.launch">
+    <arg name="emulated" value="true" />
+</include>
+
+</launch>
+
+
+

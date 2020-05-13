@@ -6,27 +6,27 @@
 <arg name="gripper_present" default="true" /> <!-- Due to ROS limitation, we need to set this extra. Make sure this is the same as in the config yaml -->
 <arg name="data_dir" default='$(env PWD)'/> <!-- This tells the teaching app where to find/dump data-->
 <arg name="behavior_dir" default='behavior' />
-
+<arg name="emulated" default="false" doc="Set to true if you don't have an actual robot connected, and want to run on a virtual robot instead"/>
+  
 
 <param name="DemoSessionConfigFileName" value="session.yaml"/>  
 <node name="teaching_app"  pkg="phastapromep" type="teaching_app.py" args="session.yaml" required="true" output="screen" />
 <param name="data_dir" value='$(arg data_dir)'/> <!-- This tells the teaching app where to find/dump data-->
 
 <group ns='robot'>
+  <param name="arm_id" value="$(arg arm_id)" />
   <include file="$(find controller_panda_mti)/launch/default.launch">
     <arg name="arm_id" value='$(arg arm_id)' />
-    <arg name="watchdog_do_damping" default="true" />
+    <arg name="watchdog_do_damping" value="true" />
+    <arg name="emulated" value="$(arg emulated)" />
   </include> 
 
-  <node name="controller2jointstatemsgs" pkg="controller_panda_mti" type="controller2jointstatemsgspublisher.py"  output="screen" required="true"/>
-  <node name="robot_tf_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
-  <node name="expected_tf_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
-    <remap from="joint_states" to="joint_states_expected"/>
-    <param name="tf_prefix" value='expected'/>
-  </node>
+  <include file="$(find controller_panda_mti)/launch/publish_tfs.launch">
+    <arg name="arm_id" value='$(arg arm_id)' />
+  </include> 
+  
   <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg arm_id)_anchor_expected" args="0 0 0 0 0 0 1 base expected/$(arg arm_id)_link0" />  
   <node pkg="tf2_ros" type="static_transform_publisher" name="$(arg arm_id)_anchor" args="0 0 0 0 0 0 1 base $(arg arm_id)_link0" />  
-
 
 </group>
 
