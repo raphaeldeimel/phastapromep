@@ -535,8 +535,8 @@ class LabelController(object):
         msg=PDControllerGoal8()
         time = row[('observed', 'time')]
         positions = row[('observed', 'position')]
-        velocities = row[('observed', 'position')]
-        torques = row[('observed', 'position')]
+        velocities = row[('observed', 'velocity')]
+        torques = row[('observed', 'torque')]
         msg.stamp.secs = time['secs']
         msg.stamp.nsecs = time['nsecs']
         for i in range(self.dof):
