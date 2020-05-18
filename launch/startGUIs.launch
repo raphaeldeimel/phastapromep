@@ -14,7 +14,7 @@
   <node name="phasesactivationsmonitor" pkg="phastapromep" type="phasesactivationsmonitor.py"  output="screen">
   </node>
   
-  <param name="robot_description" command="$(find xacro)/xacro $(find franka_description)/robots/panda_arm_hand.urdf.xacro" />
+  <param name="robot_description" command="$(find xacro)/xacro $(find franka_description_mti)/robots/panda_arm_hand.urdf.xacro" />
   <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(arg data_dir)/runBehavior.rviz"/>  
 
 </launch>

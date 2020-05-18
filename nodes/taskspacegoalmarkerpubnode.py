@@ -59,7 +59,7 @@ if __name__=="__main__":
     # create a grey box marker
     ee_marker = Marker()
     ee_marker.type = Marker.MESH_RESOURCE
-    ee_marker.mesh_resource = "package://franka_description/meshes/visual/hand.dae"
+    ee_marker.mesh_resource = "package://franka_description_mti/meshes/visual/hand.dae"
     #ee_marker.mesh_use_embedded_materials = True
     ee_marker.pose.position.x = 0
     ee_marker.pose.position.y = 0
