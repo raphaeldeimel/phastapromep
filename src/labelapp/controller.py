@@ -500,7 +500,7 @@ class LabelController(object):
         self.observedRobotStatesList.append(row)
 
 
-    def publish_pd_controllergoal(self,PDgoal8=None,Samplecounter = None, soft_start=True ):
+    def publish_pd_controllergoal(self,PDgoal8=None,Samplecounter = None, time_speed=1, soft_start=True ):
         """ Function for Publishing a PDControllerGoal8.msg to Panda """
         if PDgoal8 != None:
             PDControllerGoal8Msg = PDgoal8
@@ -516,7 +516,7 @@ class LabelController(object):
             PDControllerGoal8Msg = PDControllerGoal8()
             row = self.currentTrajectory.iloc[Samplecounter]
             playback_stiffness = self.metadata['playback_stiffness'].iloc[self.currentlyActiveTrajectoryNumber]
-            PDControllerGoal8Msg = self._convertRowToPDgoalMsg(row,playback_stiffness)# self.currentlyPublishingSampleIndex iterates the number of Samples in Trajectory
+            PDControllerGoal8Msg = self._convertRowToPDgoalMsg(row,playback_stiffness, time_speed = time_speed) # self.currentlyPublishingSampleIndex iterates the number of Samples in Trajectory
             PDControllerGoal8Msg.stamp = rospy.get_rostime() + rospy.Duration(0.1) #overwrite the trajectory's timestamp to the current real time
 
         if soft_start:
@@ -530,7 +530,7 @@ class LabelController(object):
 
 
 
-    def _convertRowToPDgoalMsg(self,row, playback_stiffness):
+    def _convertRowToPDgoalMsg(self,row, playback_stiffness, time_speed=1.0):
         """ Converts numpy-array read from HDF5 to PDControllerGoal8 for replaying on panda """
         msg=PDControllerGoal8()
         time = row[('observed', 'time')]
@@ -541,10 +541,10 @@ class LabelController(object):
         msg.stamp.nsecs = time['nsecs']
         for i in range(self.dof):
             msg.position[i] =  positions[str(i)]
-            msg.velocity[i] =  velocities[str(i)]
-            msg.torque[i] =  0.0#  torques[str(i)]
+            msg.velocity[i] =  time_speed * velocities[str(i)]
+            msg.torque[i] =    time_speed * torques[str(i)]
             msg.kp[i] = playback_stiffness*self.kp_max[i] # soft
-            msg.kv[i] = playback_stiffness*self.kd_max[i] #and slow
+            msg.kv[i] = self.kd_max[i] #and slow
         return msg
 
 
@@ -767,7 +767,7 @@ class LabelController(object):
                #if the sample changed, publish new sample and remember it:
                if self.lastPublishedSampleIndex != self.currentlyPublishingSampleIndex:
                     self.realTimeOfLastPublication = now
-                    self.publish_pd_controllergoal(Samplecounter = self.currentlyPublishingSampleIndex)
+                    self.publish_pd_controllergoal(Samplecounter = self.currentlyPublishingSampleIndex, time_speed = self.TrajectoryTimeDirection)
                     self.lastPublishedSampleIndex = self.currentlyPublishingSampleIndex
                     value = self.currentlyPublishingSampleIndex / float(self.metadata.loc[self.currentlyActiveTrajectoryNumber,'samples'])
                     self.kivyinterface.trajectoryEditorBar.set_value_to_cursor('currentsample',value)
