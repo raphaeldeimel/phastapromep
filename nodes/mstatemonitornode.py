@@ -22,11 +22,9 @@ import numpy as _np
 _np.set_printoptions(precision=2, suppress=True, formatter={'float': '{: 0.3f}'.format})
 import os
 
-import promp
-import promp._tensorfunctions as _t
-import phasestatemachine
-import phasestatemachine.msg
+import mechanicalstate
 import phastapromep
+import phastapromep.msg
 import yaml
 
 
@@ -52,6 +50,11 @@ class MStateMonitorNode(object):
         self.nStride = int(rate * showDuration * 2.1)
         self.minRecordingTimestep = 0.99 / rate
         self.isWithJointStates = withJointStates
+        self.tensornamespace = mechanicalstate.makeTensorNameSpaceForMechanicalStateDistributions(d=self.dofs)
+        self.tensornamespace.registerTensor('means', (('r', 'g', 'd'),()))
+        self.tensornamespace.registerTensor('covs', (('r', 'g', 'd'),('r_','g_','d_')))
+        self.mstatedist = mechanicalstate.MechanicalStateDistribution(self.tensornamespace, 'means', 'covs')
+
         self.means  = _np.zeros((self.dofs, 3, self.nStride))
         self.sigmas = _np.zeros((self.dofs, 3, self.nStride))
         self.gains  = _np.zeros((self.dofs, 2, self.nStride))
@@ -154,7 +157,9 @@ class MStateMonitorNode(object):
             self.sigmas[:,:,self.lastMsgIndex] = _np.nan
             if self.isWithJointStates:
                 self.jointstates[:,:,self.lastMsgIndex] = _np.nan
-            
+
+
+
         meansData = _np.asarray(data.meansMatrix)
         meansData.shape = (self.mstates,self.dofs)
         self.means[:,:,idx] = meansData.T
@@ -167,15 +172,13 @@ class MStateMonitorNode(object):
             for dof in range(self.dofs):
                 self.sigmas[dof,i,idx] = _np.sqrt(covTensor[i,dof,i,dof])
 
-
         #compute pd gains:
-        #sigma_qt = covTensor[self.iTau,  :, self.iPos:,:]
-        #sigma_qq = covTensor[self.iPos:, :, self.iPos:,:]
-        #sigma_qq_inv = _t.pinv(sigma_qq, regularization=0)
-        #gains = -_t.dot(sigma_qt, sigma_qq_inv, shapes = ((1,2),(2,2)) ) #gains is (dof, mstate x dof)
+        self.tensornamespace.setTensorFromFlattened('means', _np.asarray(data.meansMatrix))
+        self.tensornamespace.setTensorFromFlattened('covs', _np.asarray(data.covarianceTensor))
+        gains = self.mstatedist.extractTorqueControlGains()
         gains = promp.extractPDGains(covTensor)
         for dof in range(self.dofs):
-            self.gains[dof,:,idx]= gains[dof, :, dof]
+            self.gains[dof,:,idx]= gains[dof, :, dof,1]
         
 
         if self.isWithJointStates and self.lastRobotStateMsg is not None:
@@ -258,7 +261,9 @@ def themePyQTGraph():
     return pens_dict
 
 def main(samplerate, duration):
-    persistentconfigfile = os.path.join(os.environ["ROS_DATA"], ".mstatemonitor.config.yaml")
+    rospy.init_node('mstateMonitor')#
+    data_dir = rospy.get_param('data_dir')
+    persistentconfigfile = os.path.join(data_dir, ".mstatemonitor.config.yaml")
     try:
         with open(persistentconfigfile, 'r') as f:
             persistentconfig = yaml.load(f)
@@ -267,7 +272,6 @@ def main(samplerate, duration):
     except:
         persistentconfig = {}
         pass
-    rospy.init_node('mstateMonitor')
     pens_dict = themePyQTGraph()
 
 

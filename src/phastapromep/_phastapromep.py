@@ -36,9 +36,10 @@ import copy
 
 try:
     import promep as _promep
+    import mechanicalstate as _mechanicalstate
 except ImportError as e:
     if "promep" in e.message:
-        print("\nCould not find promep. Please download/install the python-promep package!\n”")
+        print("\nCould not find promep module. Please download/install the python-promep package!\n”")
     raise e
 
 try:
@@ -308,7 +309,7 @@ def createPDControllerParamsFromDemonstration(graphconfig, primitives, sessionco
         means = []
         inverseCovariances = []
         activations_list = _np.zeros((len(primitives)))
-        phases_generalized = _np.zeros((mixer.tns['gphi'].size, len(primitives)))
+        phases_generalized = _np.zeros((mixer.tns['g'].size, len(primitives)))
         
         #determine controller name
         likelyControllerName =  None
@@ -340,7 +341,7 @@ def createPDControllerParamsFromDemonstration(graphconfig, primitives, sessionco
         params['type'] = 'PDController'
         
         #select which primitive to use for estimating desired position
-        for p_id,p in enumerate(primtives):
+        for p_id,p in enumerate(primitives):
             ij = graphconfig['transition_names'][p.name]
             phases_generalized[:, p_id] = 0.0 #set all phase derivatives to zero first
             if ij[1] == i and params[u'learnFrom'] != u'outgoing':  #is incoming transition?
@@ -349,7 +350,7 @@ def createPDControllerParamsFromDemonstration(graphconfig, primitives, sessionco
             if ij[0] == i and params[u'learnFrom'] != u'incoming':  #is outgoing transition?
                  activations_list[p_id]  = 1.0
                  phases_generalized[0, p_id] = 0.0
-        phaseVelocityVectorPrimtives = _np.ones(len(primtives)) #position controllers
+        phaseVelocityVectorPrimtives = _np.ones(len(primitives)) #position controllers
         
         with warnings.catch_warnings():
             warnings.simplefilter("ignore") #we mix with full activations, therefore the sum is usually greater than 1. suppress the mixer's warning here

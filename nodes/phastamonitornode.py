@@ -22,8 +22,8 @@ import numpy as _np
 _np.set_printoptions(precision=2, suppress=True, formatter={'float': '{: 0.3f}'.format})
 import os
 
-import phasestatemachine
-import phasestatemachine.msg
+import phastapromep
+import phastapromep.msg
 
 import rospy
 import pyqtgraph as _pg
@@ -202,8 +202,10 @@ class PhastaStateMonitorNode(object):
 
 
 def main(updaterate=20):
-
-    persistentconfigfile = os.path.join(os.environ["ROS_DATA"], ".phastamonitor.config.yaml")
+    rospy.init_node('phastaStateMonitor')
+    data_dir = rospy.get_param('data_dir')
+    persistentconfigfile = os.path.join(data_dir, ".phastamonitor.config.yaml")
+    
     try:
         with open(persistentconfigfile, 'r') as f:
             persistentconfig = yaml.load(f)
@@ -213,7 +215,7 @@ def main(updaterate=20):
         persistentconfig = {}
         pass
 
-    rospy.init_node('phastaStateMonitor')
+
     pens_dict = themePyQTGraph()
 
     _pg.setConfigOptions(antialias=True)
@@ -238,8 +240,8 @@ def main(updaterate=20):
     monitor = PhastaStateMonitorNode(view, pens_dict)
 
 
-    MStateListener       = rospy.Subscriber("/phasta/x", phasestatemachine.msg.StateVector, monitor.StateVectorMsgCallback    , queue_size=20)
-    StateConnectivityListener       = rospy.Subscriber("/phasta/stateconnectivity", phasestatemachine.msg.StateMatrix, monitor.connectivityCallback    , queue_size=1)
+    MStateListener       = rospy.Subscriber("/phasta/x", phastapromep.msg.StateVector, monitor.StateVectorMsgCallback    , queue_size=20)
+    StateConnectivityListener       = rospy.Subscriber("/phasta/stateconnectivity", phastapromep.msg.StateMatrix, monitor.connectivityCallback    , queue_size=1)
     
     rate = rospy.Rate(updaterate)
     view.show() #show window

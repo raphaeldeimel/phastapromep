@@ -22,8 +22,8 @@ import numpy as _np
 _np.set_printoptions(precision=2, suppress=True, formatter={'float': '{: 0.3f}'.format})
 import os
 
-import phasestatemachine
-import phasestatemachine.msg
+import phastapromep
+import phastapromep.msg
 
 import rospy
 import pyqtgraph as _pg
@@ -241,8 +241,8 @@ def main(updaterate=5):
     
     monitor = PhastaStateEvolutionMonitorNode(view, pens_dict)
 
-    MStateListener       = rospy.Subscriber("/phasta/phases_activations", phasestatemachine.msg.PhasesActivations, monitor.PhasesActivationsMsgCallback    , queue_size=20)
-    StateConnectivityListener       = rospy.Subscriber("/phasta/stateconnectivity", phasestatemachine.msg.StateMatrix, monitor.connectivityCallback    , queue_size=1)
+    MStateListener       = rospy.Subscriber("/phasta/phases_activations", phastapromep.msg.PhasesActivations, monitor.PhasesActivationsMsgCallback    , queue_size=20)
+    StateConnectivityListener       = rospy.Subscriber("/phasta/stateconnectivity", phastapromep.msg.StateMatrix, monitor.connectivityCallback    , queue_size=1)
     
     rate = rospy.Rate(updaterate)
     view.show() #show window

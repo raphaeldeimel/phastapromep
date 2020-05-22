@@ -886,7 +886,7 @@ class KivyRootWidget(BoxLayout):
         # Prevents Access on Datahandler and stop all actions - undo this after Thread finished (Dissmissbtn)
         self.playbackController.PublisherMode = PandaPublisherModeEnum.wait_for_behavior 
  
-        self.learnGraphSubprocess = subprocess.Popen(["rosrun", "phastapromep", "learnGraph2.py","session.yaml"], stdout=subprocess.PIPE, universal_newlines=True)
+        self.learnGraphSubprocess = subprocess.Popen(["rosrun", "phastapromep", "learnGraph.py","session.yaml"], stdout=subprocess.PIPE, universal_newlines=True)
         fl = fcntl.fcntl(self.learnGraphSubprocess.stdout, fcntl.F_GETFL)
         fcntl.fcntl(self.learnGraphSubprocess.stdout, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
