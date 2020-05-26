@@ -25,7 +25,7 @@ git checkout https://github.com/raphaeldeimel/python-phasestatemachine
 git checkout https://github.com/raphaeldeimel/python-promep
 git checkout https://github.com/raphaeldeimel/phastapromep
 
-apt-get install python-kivy
+apt-get install python-kivy xclip xsel  #installs dependencies for teachingApp 
 
 catkin build    #install any missing dependencies
 source ../devel/setup.bash
